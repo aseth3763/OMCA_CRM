@@ -1,0 +1,700 @@
+To create this comprehensive healthcare CRM system in Node.js with MongoDB, let’s break down each part of the system and the data structure that you’ll need. You’ll also need a clear permission model for staff and admin roles to ensure that only certain users can perform specific actions. Here’s a suggested approach for structuring the data and implementing key functionalities.
+________________________________________
+1. Modules and Their Responsibilities
+•	Dashboard: Displays system stats (e.g., total patients, earnings, patient inquiries, etc.)
+•	Patient Management: Includes patient registration, tracking, appointment scheduling, status updates, and history.
+•	Reports: Generates reports on earnings, patient demographics, diseases, etc.
+•	Permissions: Manages access for admin and staff, allowing different levels of interaction with data.
+
+2. Database Design and Table Structures
+
+The system will use the following main collections in MongoDB (analogous to tables in SQL):
+
+1.	Users   ---> Manages user accounts for admins, staff, and potentially patients.
+-----------------
+	Fields:
+
+	userId (ObjectId): Unique identifier for each user.
+	role (String): Role of the user (e.g., "admin", "staff").
+	name (String): User’s full name.
+	email (String): User’s email.
+	passwordHash (String): Hashed password for authentication.
+	permissions (Array): Array of permissions granted (e.g., ["REGISTER_PATIENT", "MANAGE_REPORTS"]).
+
+2.	Patients  ---> Stores patient data and history.
+  -------------------
+	Fields:
+
+	patientId (ObjectId): Unique identifier for each patient.
+	name (String): Patient’s full name.
+	age (Number): Patient’s age.
+	country (String): Patient’s country of origin.
+	medicalHistory (Array): Array of medical conditions (e.g., ["diabetes", "cancer"]).
+	status (String): Current status (e.g., "new", "repeat").
+	treatmentStatus (String): Status of treatment (e.g., "denied", "ready", "coming", "completed").
+	createdBy (ObjectId, User): User who registered this patient.
+	assignedToHospital (ObjectId, Hospital): Hospital to which the patient is assigned.
+
+3.	Appointments  ---> Stores patient appointments for treatments or follow-ups.
+    ------------------------	
+	Fields:
+
+	appointmentId (ObjectId): Unique identifier.
+	patientId (ObjectId, Patient): Patient associated with this appointment.
+	discussionNotes (String): Notes from discussions with the patient.
+	nextFollowUp (Date): Date for the next follow-up appointment.
+	status (String): Appointment status (e.g., "scheduled", "completed").
+
+4.	Treatments  ---> Records the type of treatments patients need or have received.
+--------------------------
+	
+	Fields:
+
+	treatmentId (ObjectId): Unique identifier.
+	treatmentType (String): Type of treatment (e.g., "cancer treatment", "eye surgery").
+	patientId (ObjectId, Patient): Patient receiving this treatment.
+	hospitalId (ObjectId, Hospital): Hospital where treatment is given.
+	disease (String): Specific disease treated (e.g., "diabetes", "cancer").
+	cost (Number): Treatment cost.
+	earnings (Number): OMCA earnings from this treatment.
+
+5.	Earnings  ---> Tracks total earnings, weekly, monthly, and yearly.
+     -----------------	
+	Fields:
+
+	earningId (ObjectId): Unique identifier.
+	period (String): Period type (e.g., "monthly", "weekly", "yearly").
+	amount (Number): Earnings in that period.
+	date (Date): Date for the earnings record.
+
+6.	Hospitals  ---> Stores hospital information where treatments are administered.
+--------------------------
+	
+	Fields:
+	hospitalId (ObjectId): Unique identifier.
+	name (String): Hospital name.
+	location (String): Hospital location.
+	patientsAssigned (Array, Patient): List of patients assigned to this hospital.
+
+
+3. Functionality and Relationships
+
+Each collection has relationships, as follows:
+
+•	Patients → Appointments: One patient can have multiple appointments, creating a one-to-many relationship.
+•	Patients → Treatments: One patient may have multiple treatments, creating a one-to-many relationship.
+•	Patients → Hospitals: A patient is assigned to a hospital, creating a one-to-one relationship.
+•	Users (staff/admin): Determines who has permissions to manage, register, and update patients.
+
+4. CRM Functionality and Steps
+
+1.	Patient Registration:
+          Admin and Staff Role: Only users with the REGISTER_PATIENT permission can register a new patient.
+	Functionality:
+	Create a form to capture basic patient information.
+	Assign a patientId and save the patient data in the Patients collection.
+	Assign initial status (new) and set treatment status (e.g., "coming" or "denied").
+
+2.	Patient Management:
+
+	Admin and Staff Role: View and update patient information (e.g., status updates, treatment details).
+	Functionality:
+
+	Staff can update the status of a patient, log discussions, and add follow-up dates.
+	All updates are stored in Appointments and Treatments collections, maintaining a history.
+
+3.	Reports:
+
+	Admin Role: Admins can access a dashboard with summarized data (total earnings, patients by disease, country-wise reports).
+
+	Functionality:
+
+	Aggregation pipelines in MongoDB can be used to generate summary statistics (e.g., patient count by disease or country).
+	Generate reports for specified periods (e.g., yearly, monthly) from the Earnings and Patients collections.
+
+4.	Permission Management:
+
+	Define permissions for each user (e.g., staff can register patients, but only admins can generate reports).
+	Create middleware in Node.js to check a user’s role and permissions before allowing access to endpoints.
+
+5. Implementing Permissions and Role-Based Access Control
+
+1.	Define Permissions: In the Users collection, use an array of permissions to specify each user’s access level.
+2.	Middleware Setup: Create middleware in Node.js that checks the logged-in user’s permissions before executing requests.
+3.	Example Middleware:
+
+=====================================================================================================================================================
+
+const checkPermissions = (requiredPermission) => {
+    return (req, res, next) => {
+        const user = req.user; // Assuming user is added to req by authentication middleware
+        if (user && user.permissions.includes(requiredPermission)) {
+            next();
+        } else {
+            res.status(403).json({ error: "Access denied." });
+        }
+    };
+};
+
+
+
+
+=====================================================================================================
+
+
+
+2.	Define Models for Each Collection: Create model files in a models/ folder for each main collection (Patients, Users, Treatments, Appointments, Earnings).
+3.	Create API Routes:
+o	Patient registration and management.
+o	Appointment and treatment updates.
+o	Report generation and permissions.
+4.	Integrate Authentication and Authorization:
+o	Use JSON Web Tokens (JWT) to manage session tokens.
+o	Restrict routes based on the user’s role and permissions using middleware.
+5.	Build and Test:
+o	Set up Express routes and connect them to MongoDB.
+o	Implement testing for each CRUD operation, ensuring users can only perform actions they are authorized to do.
+Here’s how you can define the Users schema in MongoDB using Mongoose and create API endpoints in Node.js to manage user accounts, including admins, staff, and patients. Since patients will have their own collection, we will separate out patient management from user account management.
+
+
+
+
+2. API Endpoints for User Management
+To manage users, we’ll create APIs for the following operations:
+1.	Register a User: Create an admin or staff user.
+2.	Login a User: Authenticate user and return a JWT token.
+3.	Update User: Update user details, like permissions.
+4.	Delete User: Delete a user account.
+5.	Get All Users: Retrieve a list of all users (for admin access).
+
+3. API Routes and Controller Functions
+
+Create a controllers/userController.js file for user-related controller functions, and set up the routes in routes/userRoutes.js.
+
+controllers/userController.js
+
+This file will contain functions for registering, logging in, updating, and deleting users. We’ll use bcrypt to hash passwords and jsonwebtoken to manage sessions.
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const user = require("../models/user");
+
+// secret key for jwt
+const jwt_secret = "your_secret_key"; // change this to a secure key in production
+
+// register a new user (admin or staff)
+exports.registeruser = async (req, res) => {
+  const { name, email, password, role, permissions } = req.body;
+  try {
+    const existinguser = await user.findone({ email });
+    if (existinguser) return res.status(400).json({ message: "user already exists" });
+
+    const passwordhash = await bcrypt.hash(password, 10);
+    const newuser = new user({ name, email, passwordhash, role, permissions });
+    await newuser.save();
+
+    res.status(201).json({ message: "user registered successfully", userid: newuser._id });
+  } catch (error) {
+    res.status(500).json({ message: "error registering user", error });
+  }
+};
+
+// user login
+exports.loginuser = async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const user = await user.findone({ email });
+    if (!user) return res.status(404).json({ message: "user not found" });
+
+    const ismatch = await bcrypt.compare(password, user.passwordhash);
+    if (!ismatch) return res.status(400).json({ message: "invalid credentials" });
+
+    const token = jwt.sign({ userid: user._id, role: user.role, permissions: user.permissions }, jwt_secret, { expiresin: "1h" });
+    res.status(200).json({ token });
+  } catch (error) {
+    res.status(500).json({ message: "error logging in", error });
+  }
+};
+
+// update user permissions
+exports.updateuser = async (req, res) => {
+  const { userid } = req.params;
+  const { permissions } = req.body;
+  try {
+    const user = await user.findbyidandupdate(userid, { permissions }, { new: true });
+    if (!user) return res.status(404).json({ message: "user not found" });
+
+    res.status(200).json({ message: "user updated successfully", user });
+  } catch (error) {
+    res.status(500).json({ message: "error updating user", error });
+  }
+};
+
+// delete a user
+exports.deleteuser = async (req, res) => {
+  const { userid } = req.params;
+  try {
+    const user = await user.findbyidanddelete(userid);
+    if (!user) return res.status(404).json({ message: "user not found" });
+
+    res.status(200).json({ message: "user deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: "error deleting user", error });
+  }
+};
+
+// get all users (admin only)
+exports.getallusers = async (req, res) => {
+  try {
+    const users = await user.find({});
+    res.status(200).json({ users });
+  } catch (error) {
+    res.status(500).json({ message: "error retrieving users", error });
+  }
+};
+routes/userRoutes.js
+Now, define routes that map to these functions. Set up a middleware to protect routes based on roles and permissions.
+javascript
+Copy code
+const express = require("express");
+const { registerUser, loginUser, updateUser, deleteUser, getAllUsers } = require("../controllers/userController");
+const router = express.Router();
+const authMiddleware = require("../middleware/authMiddleware");
+
+// Public route for user registration and login
+router.post("/register", registerUser);
+router.post("/login", loginUser);
+
+// Protected routes for user management
+router.put("/update/:userId", authMiddleware(["admin"]), updateUser); // Only admins can update users
+router.delete("/delete/:userId", authMiddleware(["admin"]), deleteUser); // Only admins can delete users
+router.get("/all", authMiddleware(["admin"]), getAllUsers); // Only admins can view all users
+
+module.exports = router;
+middleware/authMiddleware.js
+This middleware checks user roles and permissions based on their JWT token.
+javascript
+Copy code
+const jwt = require("jsonwebtoken");
+const JWT_SECRET = "your_secret_key";
+
+const authMiddleware = (requiredRoles) => {
+  return (req, res, next) => {
+    const token = req.headers.authorization?.split(" ")[1];
+    if (!token) return res.status(401).json({ message: "Access denied" });
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      req.user = decoded;
+
+      if (requiredRoles && !requiredRoles.includes(req.user.role)) {
+        return res.status(403).json({ message: "Access forbidden" });
+      }
+
+      next();
+    } catch (error) {
+      res.status(403).json({ message: "Invalid token" });
+    }
+  };
+};
+
+module.exports = authMiddleware;
+4. Setting Up Patient Management Separately
+Since patients have different data needs, create a separate schema and controller for managing patients.
+models/Patient.js
+javascript
+Copy code
+const mongoose = require("mongoose");
+
+const patientSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true,
+  },
+  age: {
+    type: Number,
+    required: true,
+  },
+  country: {
+    type: String,
+    required: true,
+  },
+  medicalHistory: {
+    type: [String],
+    default: [],
+  },
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    required: true,
+  },
+  status: {
+    type: String,
+    enum: ["new", "repeat"],
+    default: "new",
+  },
+});
+
+module.exports = mongoose.model("Patient", patientSchema);
+5. Creating Patient Management APIs
+Define CRUD operations for patients in controllers/patientController.js and create corresponding routes in routes/patientRoutes.js.
+________________________________________
+This setup provides a solid structure for user management with permissions and separate patient management. You can now add more specific patient-related functionality like appointments or treatments by expanding on this foundation.
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------
+
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const userModel = require('../model/userModel');
+
+const jwt_secret = 'omca@123';  // Secret key for signing JWT
+
+// User Login API with token
+const login_user = async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        // Check if required fields are provided
+        if (!email || !password) {
+            return res.status(400).json({ success: false, message: 'Email and password are required' });
+        }
+
+        // Find user by email
+        const user = await userModel.findOne({ email });
+        if (!user) {
+            return res.status(400).json({ success: false, message: 'User not found' });
+        }
+
+        // Compare password with the stored hash
+        const isMatch = await bcrypt.compare(password, user.password);
+        if (!isMatch) {
+            return res.status(400).json({ success: false, message: 'Invalid credentials' });
+        }
+
+        // Generate JWT token
+        const token = jwt.sign(
+            { userId: user._id, role: user.role },  // Payload
+            jwt_secret,                            // Secret key
+            { expiresIn: '1h' }                    // Token expiry time (1 hour)
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: 'Login successful',
+            token
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error_message: error.message
+        });
+    }
+};
+
+module.exports = { login_user };
+
+
+--------------------------------------------------------------
+
+const update_permissions = async (req, res) => {
+    try {
+        const { userId, permissions } = req.body;
+
+        // Check if the permissions are provided
+        if (!permissions || !Array.isArray(permissions)) {
+            return res.status(400).json({ success: false, message: 'Permissions should be an array' });
+        }
+
+        // Find the user by ID
+        const user = await userModel.findById(userId);
+        if (!user) {
+            return res.status(404).json({ success: false, message: 'User not found' });
+        }
+
+        // Ensure the current user (admin) is trying to update only staff user permissions
+        if (user.role === 'admin') {
+            return res.status(400).json({ success: false, message: 'Cannot modify admin permissions' });
+        }
+
+        // Update the permissions
+        user.permissions = permissions;
+
+        await user.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Permissions updated successfully',
+            details: user
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error_message: error.message
+        });
+    }
+};
+
+
+
+============================================================================================
+
+
+
+Aapka jo current route structure hai, usme roleCheck middleware static permissions check kar raha hai (hardcoded roles). Agar aap dynamic permissions implement karna chahte hain jahan permissions 0 aur 1 ke basis pe database se check ho, toh niche diye steps ko follow kijiye.
+
+1. Permission Schema Banaiye
+Create a permission schema to manage API permissions for different roles dynamically.
+
+Permission Schema
+javascript
+Copy code
+const mongoose = require('mongoose');
+
+const permissionSchema = new mongoose.Schema({
+    role: { type: String, required: true, enum: ['Admin', 'Staff'] },
+    permissions: {
+        type: Map, // Dynamic key-value pair
+        of: Number, // 1 for allowed, 0 for denied
+        required: true,
+    },
+});
+
+const PermissionModel = mongoose.model('Permission', permissionSchema);
+module.exports = PermissionModel;
+Example data for permissions:
+
+json
+Copy code
+{
+    "role": "Admin",
+    "permissions": {
+        "/add_staff_user": 1,
+        "/get_all_user_staffs": 1,
+        "/update_details": 1,
+        "/delete_hospital": 1
+    }
+},
+{
+    "role": "Staff",
+    "permissions": {
+        "/add_staff_user": 0,
+        "/get_all_user_staffs": 0,
+        "/update_details": 1,
+        "/delete_hospital": 0
+    }
+}
+2. Middleware for Dynamic Role Checking
+A new middleware dynamicRoleCheck create kijiye jo permissions database se fetch karega aur API ke access ko check karega.
+
+Dynamic Role Check Middleware
+javascript
+Copy code
+const PermissionModel = require('../models/permission');
+
+const dynamicRoleCheck = () => async (req, res, next) => {
+    try {
+        const { path } = req; // Current API path
+        const userRole = req.user.role; // Role from authenticated user
+
+        // Fetch role's permissions from the database
+        const rolePermissions = await PermissionModel.findOne({ role: userRole });
+
+        if (!rolePermissions || rolePermissions.permissions.get(path) !== 1) {
+            return res.status(403).json({
+                success: false,
+                message: 'Access Denied',
+            });
+        }
+
+        next(); // Permission granted
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Server Error',
+            error: error.message,
+        });
+    }
+};
+
+module.exports = dynamicRoleCheck;
+3. Routes Update
+Update your routes to use the dynamicRoleCheck middleware instead of roleCheck.
+
+Updated Routes
+javascript
+Copy code
+const express = require('express');
+const router = express.Router();
+const upload = require('../../upload');
+const userController = require('../controller/userController');
+const authenticate = require('../middleware/authMiddleware');
+const dynamicRoleCheck = require('../middleware/dynamicRoleCheck'); // Use dynamic middleware
+
+router.post('/add_staff_user', authenticate, dynamicRoleCheck(), upload.single('profileImage'), userController.add_staff_user);
+router.get('/get_all_user_staffs', authenticate, dynamicRoleCheck(), userController.get_all_user_staffs);
+router.get('/get_details/:userId', authenticate, dynamicRoleCheck(), userController.get_details);
+router.put('/update_details/:userId', authenticate, dynamicRoleCheck(), upload.single('profileImage'), userController.update_details);
+router.post('/change_user_password/:userId', authenticate, dynamicRoleCheck(), userController.change_user_password);
+router.post('/active_inactive_staff_user/:staff_user_id', authenticate, dynamicRoleCheck(), userController.active_inactive_staff_user);
+
+module.exports = router;
+4. Seed Initial Permissions
+Jab application ko initialize karte hain, tab aapko permissions database me insert karni hoti hain. Iske liye ek seed script likhiye.
+
+Seed Script
+javascript
+Copy code
+const PermissionModel = require('./models/permission');
+
+const seedPermissions = async () => {
+    const permissions = [
+        {
+            role: 'Admin',
+            permissions: {
+                '/add_staff_user': 1,
+                '/get_all_user_staffs': 1,
+                '/get_details': 1,
+                '/update_details': 1,
+                '/delete_hospital': 1,
+            },
+        },
+        {
+            role: 'Staff',
+            permissions: {
+                '/add_staff_user': 0,
+                '/get_all_user_staffs': 0,
+                '/get_details': 1,
+                '/update_details': 1,
+                '/delete_hospital': 0,
+            },
+        },
+    ];
+
+    await PermissionModel.insertMany(permissions);
+    console.log('Permissions Seeded Successfully');
+};
+
+seedPermissions();
+Run this script once to insert initial permissions into the database.
+
+5. Update Permissions Dynamically
+Aap admin API bana sakte hain jo permissions ko dynamically update kare.
+
+Update Permission API
+javascript
+Copy code
+const PermissionModel = require('../models/permission');
+
+const updatePermission = async (req, res) => {
+    try {
+        const { role, endpoint, allow } = req.body; // `allow` will be 1 or 0
+
+        await PermissionModel.updateOne(
+            { role },
+            { $set: { [`permissions.${endpoint}`]: allow } }
+        );
+
+        res.status(200).json({
+            success: true,
+            message: `Permission updated for ${role} on ${endpoint}`,
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update permissions',
+            error: error.message,
+        });
+    }
+};
+
+module.exports = { updatePermission };
+
+
+
+
+
+ const treatment = await treatmentModel.findOne({ patientId : patientId , treatment_course_name : treatment_course.course_name })
+                           if(treatment)
+                           {
+                             const hospitalexist = patient.hospital.some(
+                               (h) => h.hospital_id === hospital_id
+                             );
+                             if (!hospitalexist) {
+                               patient.hospital.push({ hospital_id : hospital_id , hospital_name : newAppointment.hospital_Name   });
+                     
+                               await patient.save();
+                             }
+                             let a = []
+                             a.push({
+                               appointmentId : newAppointment.appointmentId,
+                               apppointment_Date : newAppointment.appointment_Date
+                             })
+                 
+                             treatment.appointments = a
+                 
+                             treatment.save()
+
+
+
+
+
+
+=========================================================================================================================================
+
+const refreshAccessToken = async (req, res) => {
+    try {
+        const { refreshToken } = req.body;
+
+        // Validate if the refresh token is provided
+        if (!refreshToken) {
+            return res.status(400).json({
+                success: false,
+                message: 'Refresh token is required'
+            });
+        }
+
+        // Verify the refresh token
+        jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, async (err, decoded) => {
+            if (err) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Invalid or expired refresh token'
+                });
+            }
+
+            // Check if the refresh token exists in the database
+            const user = await userModel.findById(decoded.id);
+            if (!user || user.refreshToken !== refreshToken) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Refresh token does not match'
+                });
+            }
+
+            // Generate a new access token
+            const newAccessToken = jwt.sign(
+                { id: user._id, role: user.role },
+                process.env.JWT_SECRET,
+                { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
+            );
+
+            return res.status(200).json({
+                success: true,
+                accessToken: newAccessToken
+            });
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error_message: error.message
+        });
+    }
+};
+
