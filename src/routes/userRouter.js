@@ -122,6 +122,9 @@ const dynamicRoleCheck = require('../middleware/role_auth');
     router.post('/add_free_service' , userController.add_free_service) 
     
                                       /* Appointment Section */
+
+
+                                      
                                                   
     // Api for create Appointment
     router.post('/create_appointment/:userId', authenticate, roleCheck('/create_appointment'),  userController.create_appointment)
