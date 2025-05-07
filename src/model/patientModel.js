@@ -16,6 +16,9 @@ const patientSchema = new mongoose.Schema({
           country : {
                type : String
           },
+          phoneCode : {
+               type : String
+          },
           email : {
                type : String
           },

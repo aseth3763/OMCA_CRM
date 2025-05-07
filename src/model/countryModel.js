@@ -12,6 +12,9 @@ const countrySchema = new mongoose.Schema({
     },
     countryCurrency : {
         type : String
+    },
+    phoneCode : {
+        type : String
     }
 },{timestamps : true})
 

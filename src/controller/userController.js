@@ -662,7 +662,7 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
         
         const addCountry = async (req,res)=>{
           try {
-            let {countryName,countryCode,countryCapital,countryCurrency} = req.body
+            let {countryName,countryCode,countryCapital,countryCurrency,phoneCode} = req.body
             if(!countryName){
               return res.status(400).json({
                 success : false,
@@ -676,6 +676,13 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
               })
             }
 
+            if(!phoneCode){
+              return res.status(400).json({
+                success : false,
+                message : "phone code is required",
+              })
+            }
+            
             countryName = countryName.trim()
             countryCurrency = countryCurrency.trim()
 
@@ -691,8 +698,9 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
             }
 
             const countryData = new countryModel({
-              countryName,countryCode,countryCapital,countryCurrency
+              countryName,countryCode,countryCapital,countryCurrency,phoneCode
             })
+      
             await countryData.save()
             return res.status(200).json({
               success : true,
@@ -733,7 +741,7 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
         const editCountry = async (req, res) => {
           try {
             const { id } = req.params;
-            const { countryName, countryCode, countryCapital, countryCurrency } = req.body;
+            const { countryName, countryCode, countryCapital, countryCurrency ,phoneCode} = req.body;
         
             // Validate country ID
             if (!id) {
@@ -757,6 +765,7 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
             if (countryCode) country.countryCode = countryCode;
             if (countryCapital) country.countryCapital = countryCapital;
             if (countryCurrency) country.countryCurrency = countryCurrency;
+            if (phoneCode) country.phoneCode = phoneCode;
         
             await country.save();
         
@@ -769,6 +778,7 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
                 countryCode: country.countryCode,
                 countryCapital: country.countryCapital,
                 countryCurrency: country.countryCurrency,
+                phoneCode: country.phoneCode,
               },
             });
         
@@ -1098,30 +1108,29 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
               country,
               disease_name,
             } = req.body;
-
-       
-            
-            let userId = req.params.userId
         
-                
-            // Check for user ID
+            let userId = req.params.userId;
+        
+            // Validate userId
             if (!userId) {
               return res.status(400).json({
                 success: false,
                 message: 'User Id Required',
               });
             }
-
-             // Check for user
-             const user = await userModel.findOne({ _id: userId });
-             if (!user) {
-               return res.status(400).json({
-                 success: false,
-                 message: 'User not Found',
-               });
-             }
-         
-            // Check for required fields
+        
+            // Fetch user
+            const user = await userModel.findOne({ _id: userId });
+            if (!user) {
+              return res.status(400).json({
+                success: false,
+                message: 'User not Found',
+              });
+            }
+        
+            const countryData = await countryModel.findOne({ countryName: country });
+        
+            // Required fields check
             const requiredFields = [
               'name', 
               'age', 
@@ -1130,7 +1139,6 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
               'country', 
               'emergency_contact_no',
               'disease_name'
-              
             ];
         
             for (let field of requiredFields) {
@@ -1142,42 +1150,58 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
               }
             }
         
-            
-        
-            // Check if the Enquiry already exists
+            // Check if enquiry already exists
             const exist_enq = await enquiryModel.findOne({ email });
-            if (!exist_enq) {
-          
-              const enquiryId = `Enq-${generateRandomNumber(5)}`;
-              // Create new Enquiry
-              const newEnq = new enquiryModel({
-                enquiryId : enquiryId,
-                name,
-                age,
-                gender,
-                email,
-                emergency_contact_no,
-                country,       
-                created_by: [{
-                  Name: user.name,
-                  role: user.role,
-                  userId: userId,
-                }],  
-                disease_name   
-              });
-        
-              await newEnq.save();
-        
-              return res.status(200).json({
-                success: true,
-                message: 'Enquiry submitted successfully!',
-              });
-            } else {
+            if (exist_enq) {
               return res.status(400).json({
                 success: false,
                 message: 'Enquiry already exists',
               });
             }
+        
+            // Create new enquiry
+            const enquiryId = `Enq-${generateRandomNumber(5)}`;
+            const newEnq = new enquiryModel({
+              enquiryId,
+              name,
+              age,
+              gender,
+              email,
+              emergency_contact_no,
+              country,
+              phoneCode: countryData?.phoneCode || '',
+              created_by: [{
+                Name: user.name,
+                role: user.role,
+                userId: userId,
+              }],
+              disease_name
+            });
+        
+            await newEnq.save();
+        
+            // ✅ Send WhatsApp confirmation
+            if (emergency_contact_no && countryData?.phoneCode) {
+              const phoneCode = countryData.phoneCode.startsWith('+') 
+                ? countryData.phoneCode 
+                : `+${countryData.phoneCode}`;
+              const fullNumber = `${phoneCode}${String(emergency_contact_no)}`;
+        
+              const waMessage = `Hello ${name}, your enquiry for "${disease_name}" has been received successfully.\nOur team will contact you shortly. Thank you!`;
+        
+              try {
+                const waResult = await sendWhatsAppMessage(fullNumber, waMessage);
+                console.log("📨 WhatsApp Sent:", waResult);
+              } catch (waErr) {
+                console.error("❌ WhatsApp Error:", waErr.message);
+              }
+            }
+        
+            return res.status(200).json({
+              success: true,
+              message: 'Enquiry submitted successfully!',
+            });
+        
           } catch (error) {
             return res.status(500).json({
               success: false,
@@ -1186,7 +1210,7 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
             });
           }
         };
-
+        
 
 
     // Api for get all Enquiry
@@ -1426,7 +1450,6 @@ const update_Enquiry_status = async (req, res) => {
     const { enquiryId } = req.params;
     const { status } = req.body;
 
-    // Validate enquiryId
     if (!enquiryId) {
       return res.status(400).json({
         success: false,
@@ -1434,7 +1457,6 @@ const update_Enquiry_status = async (req, res) => {
       });
     }
 
-    // Validate status
     if (status === undefined || typeof status !== "number") {
       return res.status(400).json({
         success: false,
@@ -1442,23 +1464,21 @@ const update_Enquiry_status = async (req, res) => {
       });
     }
 
-    // Find enquiry
     const enquiry = await enquiryModel.findOne({ enquiryId });
     if (!enquiry) {
       return res.status(400).json({
         success: false,
-        message: "enquiry not found",
+        message: "Enquiry not found",
       });
     }
-    
+
     const statusMappings = {
       1: { enq_status: "Confirmed" },
-      2: { enq_status: "Hold"},
+      2: { enq_status: "Hold" },
       3: { enq_status: "Follow-Up" },
       4: { enq_status: "Dead" },
     };
 
-    // Update patient status
     const updateData = statusMappings[status];
     if (!updateData) {
       return res.status(400).json({
@@ -1468,71 +1488,70 @@ const update_Enquiry_status = async (req, res) => {
     }
 
     Object.assign(enquiry, updateData);
-    
-
-    // Save updated enquiry
     await enquiry.save();
 
-        if(enquiry.enq_status === 'Confirmed')
-        {
+    // ✅ If status is Confirmed, create or update patient
+    if (enquiry.enq_status === 'Confirmed') {
+      const exist_patient = await patientModel.findOne({ email: enquiry.email });
 
-             // check for patient Exist
+      if (exist_patient) {
+        exist_patient.patient_name = enquiry.name;
+        exist_patient.age = enquiry.age;
+        exist_patient.country = enquiry.country;
+        exist_patient.phoneCode = enquiry.phoneCode;
+        exist_patient.gender = enquiry.gender;
+        exist_patient.emergency_contact_no = enquiry.emergency_contact_no;
+        exist_patient.patient_disease = {
+          disease_name: enquiry.disease_name,
+        };
+        exist_patient.created_by = enquiry.created_by;
 
-               
-            const exist_patient = await patientModel.findOne({ email : enquiry.email });
-            if (exist_patient) {
-                // Update existing patient details
-                exist_patient.patient_name = enquiry.name;
-                exist_patient.age = enquiry.age;
-                exist_patient.country = enquiry.country;
-                exist_patient.gender = enquiry.gender;
-                exist_patient.emergency_contact_no = enquiry.emergency_contact_no;
-                exist_patient.patient_disease = {
-                    disease_name: enquiry.disease_name,
-                };
-                exist_patient.created_by = enquiry.created_by;
+        await exist_patient.save();
+      } else {
+        const patientId = `Pt-${generateRandomNumber(5)}`;
+        const newPatient = new patientModel({
+          patientId: patientId,
+          enquiryId: enquiry.enquiryId,
+          patient_name: enquiry.name,
+          age: enquiry.age,
+          country: enquiry.country,
+          phoneCode: enquiry.phoneCode,
+          email: enquiry.email,
+          gender: enquiry.gender,
+          emergency_contact_no: enquiry.emergency_contact_no,
+          patient_disease: {
+            disease_name: enquiry.disease_name,
+          },
+          created_by: enquiry.created_by,
+          discussionNotes: enquiry.discussionNotes,
+          medical_History: [],
+          Kyc_details: [],
+          services: [],
+        });
 
-                // Save updated patient details
-                await exist_patient.save();
+        await newPatient.save();
+      }
+    }
 
+    // ✅ Send WhatsApp message to the patient
+    if (enquiry.emergency_contact_no && enquiry.phoneCode) {
+      const phoneCode = enquiry.phoneCode.startsWith('+') ? enquiry.phoneCode : `+${enquiry.phoneCode}`;
+      const fullNumber = `${phoneCode}${String(enquiry.emergency_contact_no)}`;
+      const waMessage = `Hello ${enquiry.name}, your enquiry status has been updated to "${enquiry.enq_status}".\n\nThank you for choosing our service!`;
 
-            } else {
-                // Add new enquiry as a patient
-                const patientId = `Pt-${generateRandomNumber(5)}`;
-                const newPatient = new patientModel({
-                    patientId: patientId,
-                    enquiryId : enquiry.enquiryId,
-                    patient_name: enquiry.name,
-                    age: enquiry.age,
-                    country: enquiry.country,
-                    email: enquiry.email,
-                    gender: enquiry.gender,
-                    emergency_contact_no: enquiry.emergency_contact_no,
-                    patient_disease: {
-                        disease_name : enquiry.disease_name,
-                    },
-                    created_by : enquiry.created_by,
-                    discussionNotes : enquiry.discussionNotes,
-                    medical_History : [],
-                    Kyc_details : [],
-                    services : [],
-                });
+      try {
+        const result = await sendWhatsAppMessage(fullNumber, waMessage);
+        console.log("📨 WhatsApp Sent:", result);
+      } catch (waErr) {
+        console.error("❌ WhatsApp Error:", waErr.message);
+      }
+    }
 
-                // Save the new patient
-                await newPatient.save();
-                         }
-
-                                
-                    }
-         // Send WhatsApp message
-    // const waMessage = `Hello ${enquiry.name}, your enquiry status is now updated to "${enquiry.enq_status}". Thank you!`;
-    // const result = await sendWhatsAppMessage(enquiry.emergency_contact_no, waMessage); // Replace enquiry.phone if it's different
-    // console.log(result)
     return res.status(200).json({
       success: true,
       message: "Enquiry status updated successfully",
-      // sid : result.sid
     });
+
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -1541,6 +1560,7 @@ const update_Enquiry_status = async (req, res) => {
     });
   }
 };
+
 
 // Api for enquiry history of last 6 months that is not confirmed
 
@@ -1705,6 +1725,7 @@ const add_notes = async(req,res)=>{
                                           age : p.age,
                                           gender : p.gender,
                                           country : p.country,
+                                          phoneCode : p.phoneCode,
                                           patient_disease : p.patient_disease,
                                           treatment_course_name : p.treatment_course_name,
                                           emergency_contact : p.emergency_contact_no,
@@ -2248,7 +2269,7 @@ const add_notes = async(req,res)=>{
     const create_appointment = async (req, res) => {
       try {
         const userId = req.params.userId;
-        const { patientId, treatment_id, hospitalId, note, appointment_Date } = req.body;
+        const { patientId, treatment_id, hospitalId, note, appointment_Date,pickup_time, vehicle_no, driver_name, driver_contact } = req.body;
     
         if (!userId) {
           return res.status(400).json({
@@ -2336,6 +2357,10 @@ const add_notes = async(req,res)=>{
           appointment_Date,
           hospital_id: hospitalId,
           hospitalName: hospital.hospital_Name || "Unknown Hospital",
+          pickup_time,
+          vehicle_no,
+          driver_name,
+          driver_contact,
           createdBy: [
             {
               userId,
@@ -2357,14 +2382,29 @@ const add_notes = async(req,res)=>{
           });
         }
     
-        treatment.status= "InProgress"
+        treatment.status = "InProgress";
         await treatment.save();
-    
+        
+        // ✅ Send WhatsApp Message
+        if (patient.emergency_contact_no && patient.phoneCode) {
+          const phoneCode = patient.phoneCode.startsWith('+') ? patient.phoneCode : `+${patient.phoneCode}`;
+          const fullNumber = `${phoneCode}${String(patient.emergency_contact_no)}`;
+          
+          const waMessage = `Hello ${patient.patient_name}, your appointment for "${treatment.treatment_course_name}" has been scheduled.\n\nDate : ${new Date(appointment_Date).toLocaleDateString()}\nTime : ${new Date(appointment_Date).toLocaleTimeString()}\nHospital : ${hospital.hospital_Name || 'Unknown'}\nPickup Time : ${pickup_time || 'Not provided'}\nVehicle Number : ${vehicle_no || 'N/A'}\nDriver Name : ${driver_name || 'N/A'}\nDriver Phone Number : ${driver_contact || 'N/A'}\n\nThank you!`;
+        
+          try {
+            const whatsappResult = await sendWhatsAppMessage(fullNumber, waMessage);
+            console.log("📨 WhatsApp Message Sent:", whatsappResult);
+          } catch (waErr) {
+            console.error("❌ WhatsApp Error:", waErr.message);
+          }
+        }
+        
         return res.status(200).json({
           success: true,
           message: "Appointment Created Successfully",
-          
         });
+        
       } catch (error) {
         return res.status(500).json({
           success: false,
@@ -3107,10 +3147,10 @@ const add_notes = async(req,res)=>{
     const waMessage = `Hello ${patient.patient_name}, your treatment "${treatment_course.course_name}" has been successfully created.\nTotal Charge: ₹${treatment_charge}\nAmount Paid: ₹${amount_paid}\nThank you for choosing us!`;
 
     if (patient.emergency_contact_no) {
-      console.log(patient.emergency_contact_no);
+      console.log(patient.phoneCode);
       
       try {
-        const whatsappResult = await sendWhatsAppMessage(`+91${patient.emergency_contact_no}`, waMessage);
+        const whatsappResult = await sendWhatsAppMessage(`${patient.phoneCode}${patient.emergency_contact_no}`, waMessage);
         // Optional: Log or return WhatsApp status if needed
         console.log(whatsappResult);
         
@@ -4585,9 +4625,26 @@ for (let course of allCourses) {
     
         await treatment.save();
     
+        //  Send WhatsApp Message to the patient
+        const patient = await patientModel.findOne({ patientId: treatment.patientId });
+    
+        if (patient && patient.emergency_contact_no && patient.phoneCode) {
+          const phoneCode = patient.phoneCode.startsWith('+') ? patient.phoneCode : `+${patient.phoneCode}`;
+          const fullNumber = `${phoneCode}${String(patient.emergency_contact_no)}`;
+    
+          const waMessage = `Hello ${patient.patient_name}, we have received your payment of ₹${paid_amount} for treatment "${treatment.treatment_course_name}".\n\n💳 Payment Method: ${paymentMethod}\nDate: ${new Date(payment_Date).toLocaleDateString()}\nRemaining Balance: ₹${treatment.duePayment}\n\nThank you for your payment!`;
+    
+          try {
+            const whatsappResult = await sendWhatsAppMessage(fullNumber, waMessage);
+            console.log("WhatsApp Message Sent:", whatsappResult);
+          } catch (waErr) {
+            console.error("WhatsApp Error:", waErr.message);
+          }
+        }
+    
         return res.status(200).json({
           success: true,
-          message: `Payment of ${paid_amount} added for treatment ID: ${treatment_id}`,
+          message: `Payment of ₹${paid_amount} added for treatment ID: ${treatment_id}`,
         });
     
       } catch (error) {
@@ -4598,6 +4655,7 @@ for (let course of allCourses) {
         });
       }
     };
+    
     
 
                                                       /* All earnings  */

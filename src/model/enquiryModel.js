@@ -29,6 +29,9 @@ const enquirySchema = new mongoose.Schema({
                enum : ['Pending' , 'Follow-Up' , 'Hold' , 'Confirmed' , 'Dead'],
                default : 'Pending'
           },
+          phoneCode : {
+               type : String
+          },
           created_by : [{
                Name : {
                        type : String
