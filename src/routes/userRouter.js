@@ -43,6 +43,8 @@ const dynamicRoleCheck = require('../middleware/role_auth');
 
     router.put('/editCountry/:id', authenticate, roleCheck('/editCountry'), userController.editCountry)
     router.delete('/deleteCountry/:id', authenticate, roleCheck('/deleteCountry'), userController.deleteCountry)
+    router.put('/changeCountryStatus/:id',authenticate,roleCheck('/changeCountryStatus'),userController.changeCountryStatus);
+    router.get('/getActiveCountries',authenticate,roleCheck('/getActiveCountries'),userController.getActiveCountries);
     
 
                                                /* Hospital Section */
@@ -183,8 +185,9 @@ const dynamicRoleCheck = require('../middleware/role_auth');
         router.get('/get_chats', userController.get_chats)
 
         router.post("/getFilteredReports",authenticate , roleCheck('/getFilteredReports') ,userController.getFilteredReports);
-
-
+        
+        router.post("/addReports/:treatmentId",authenticate , roleCheck('/addReports'),upload.single('treatmentReport')  ,userController.addReports);
+        
       module.exports = router
 
                                     

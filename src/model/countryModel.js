@@ -1,20 +1,19 @@
 const mongoose = require("mongoose")
 
 const countrySchema = new mongoose.Schema({
-    countryName : {
+    name : {
         type : String
     },
-    countryCode : {
+    code : {
         type : String
     },
-    countryCapital : {
+    dial_code : {
         type : String
     },
-    countryCurrency : {
-        type : String
-    },
-    phoneCode : {
-        type : String
+    status :  {
+        type : String,
+        enum : ["0","1"],
+        default : "1"
     }
 },{timestamps : true})
 

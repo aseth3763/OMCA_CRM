@@ -19,6 +19,7 @@ const mongoose = require('mongoose')
 const chatModel = require('../model/chatModel')
 const PermissionDashboardModel = require('../model/perimissionDashboardModel')
 const freeServiceModel = require("../model/freeServiceModel")
+const reportModel = require("../model/reportTreatmentModel")
 const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
 
 
@@ -662,32 +663,29 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
         
         const addCountry = async (req,res)=>{
           try {
-            let {countryName,countryCode,countryCapital,countryCurrency,phoneCode} = req.body
+            let {countryName,countryCode,phoneCode} = req.body
             if(!countryName){
               return res.status(400).json({
                 success : false,
                 message : "country name is required",
               })
             }
-            if(!countryCurrency){
-              return res.status(400).json({
-                success : false,
-                message : "country currency is required",
-              })
-            }
-
+          
             if(!phoneCode){
               return res.status(400).json({
                 success : false,
                 message : "phone code is required",
               })
             }
+            if(!countryCode){
+              return res.status(400).json({
+                success : false,
+                message : "Country code is required",
+              })
+            }
             
-            countryName = countryName.trim()
-            countryCurrency = countryCurrency.trim()
-
             const existingData = await countryModel.findOne({
-              countryName, countryCurrency
+              countryName
             })
 
             if(existingData){
@@ -698,7 +696,7 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
             }
 
             const countryData = new countryModel({
-              countryName,countryCode,countryCapital,countryCurrency,phoneCode
+              countryName,countryCode,phoneCode
             })
       
             await countryData.save()
@@ -741,7 +739,7 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
         const editCountry = async (req, res) => {
           try {
             const { id } = req.params;
-            const { countryName, countryCode, countryCapital, countryCurrency ,phoneCode} = req.body;
+            const { countryName, countryCode ,phoneCode} = req.body;
         
             // Validate country ID
             if (!id) {
@@ -759,27 +757,23 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
                 message: 'Country not found',
               });
             }
+        console.log(country);
         
             // Update fields if provided
-            if (countryName) country.countryName = countryName;
-            if (countryCode) country.countryCode = countryCode;
-            if (countryCapital) country.countryCapital = countryCapital;
-            if (countryCurrency) country.countryCurrency = countryCurrency;
-            if (phoneCode) country.phoneCode = phoneCode;
+            if (countryName)
+              { country.name = countryName
+
+                console.log(country.name)
+              };
+            if (countryCode){ country.code = countryCode};
+            if (phoneCode) {country.dial_code = phoneCode};
         
             await country.save();
-        
+            console.log(country)
             return res.status(200).json({
               success: true,
               message: 'Country details updated successfully',
-              data: {
-                _id: country._id,
-                countryName: country.countryName,
-                countryCode: country.countryCode,
-                countryCapital: country.countryCapital,
-                countryCurrency: country.countryCurrency,
-                phoneCode: country.phoneCode,
-              },
+              data: country
             });
         
           } catch (error) {
@@ -818,6 +812,78 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
           }
         };
 
+        const changeCountryStatus = async (req, res) => {
+          try {
+            const { id } = req.params;
+            const { status } = req.body;
+        
+            if (!status) {
+              return res.status(400).json({
+                success: false,
+                message: "Status is required",
+              });
+            }
+        
+            if (!["0", "1"].includes(status)) {
+              return res.status(400).json({
+                success: false,
+                message: "Invalid status value. Use '0' (inactive) or '1' (active).",
+              });
+            }
+        
+            const updatedCountry = await countryModel.findByIdAndUpdate(
+              id,
+              { status },
+              { new: true }
+            );
+        
+            if (!updatedCountry) {
+              return res.status(404).json({
+                success: false,
+                message: "Country not found with the given ID",
+              });
+            }
+        
+            return res.status(200).json({
+              success: true,
+              message: "Country status updated successfully",
+              data: updatedCountry,
+            });
+        
+          } catch (error) {
+            return res.status(500).json({
+              success: false,
+              message: "Internal Server Error",
+              error: error.message,
+            });
+          }
+        };
+        
+        const getActiveCountries = async (req, res) => {
+          try {
+            const activeCountriesData = await countryModel.find({ status: "1" });
+        
+            if (!activeCountriesData || activeCountriesData.length === 0) {
+              return res.status(400).json({
+                success: false,
+                message: "No active countries found",
+              });
+            }
+        
+            return res.status(200).json({
+              success: true,
+              message: "Active countries data fetched successfully",
+              data: activeCountriesData,
+            });
+        
+          } catch (error) {
+            return res.status(500).json({
+              success: false,
+              message: "Internal Server Error",
+              error: error.message,
+            });
+          }
+        };
         
 
           // Api for active inactive staff user
@@ -1169,7 +1235,7 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
               email,
               emergency_contact_no,
               country,
-              phoneCode: countryData?.phoneCode || '',
+              phoneCode: countryData?.dial_code || '',
               created_by: [{
                 Name: user.name,
                 role: user.role,
@@ -1806,6 +1872,7 @@ const add_notes = async(req,res)=>{
                         country: patient.country,
                         email: patient.email,
                         gender: patient.gender,
+                        phoneCode : patient.phoneCode,
                         emergency_contact_no: patient.emergency_contact_no,
                         patient_status: patient.patient_status,
                         patient_disease: patient.patient_disease.map((m) => ({
@@ -2378,6 +2445,10 @@ const add_notes = async(req,res)=>{
             appointment_Date,
             disease_name : newAppointment.treatment_name,
             status: newAppointment.status,
+            pickup_time:newAppointment.pickup_time,
+          vehicle_no: newAppointment.vehicle_no,
+          driver_name:newAppointment.driver_name,
+          driver_contact:newAppointment.driver_contact
 
           });
         }
@@ -3147,7 +3218,6 @@ const add_notes = async(req,res)=>{
     const waMessage = `Hello ${patient.patient_name}, your treatment "${treatment_course.course_name}" has been successfully created.\nTotal Charge: ₹${treatment_charge}\nAmount Paid: ₹${amount_paid}\nThank you for choosing us!`;
 
     if (patient.emergency_contact_no) {
-      console.log(patient.phoneCode);
       
       try {
         const whatsappResult = await sendWhatsAppMessage(`${patient.phoneCode}${patient.emergency_contact_no}`, waMessage);
@@ -4827,12 +4897,84 @@ const getFilteredReports = async (req, res) => {
   }
 };
       
-        
+
+const allowedFileTypes = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png'];
+
+const addReports = async (req, res) => {
+  try {
+    const { treatmentId } = req.params;
+    const { reportTitle } = req.body;
+
+    // Validate treatment ID
+    if (!treatmentId) {
+      return res.status(400).json({
+        success: false,
+        message: "Treatment ID is required",
+      });
+    }
+
+    // Find treatment record
+    const treatmentData = await treatmentModel.findById(treatmentId);
+    if (!treatmentData) {
+      return res.status(404).json({
+        success: false,
+        message: "Treatment not found",
+      });
+    }
+
+    // Validate report title
+    if (!reportTitle || reportTitle.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Report title is required",
+      });
+    }
+
+    // Validate file presence
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Treatment report file is required",
+      });
+    }
+
+    // Validate file type
+    const fileExt = path.extname(req.file.originalname).toLowerCase();
+    if (!allowedFileTypes.includes(fileExt)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid file type. Only PDF, DOC, DOCX, JPG, JPEG, PNG allowed.",
+      });
+    }
+ // Save report
+ const newReport = await reportModel.create({
+  treatmentId,
+  treatment_course_name: treatmentData.treatment_course_name,
+  reportTitle,
+  treatmentReport: req.file.filename,
+});
+
+return res.status(201).json({
+  success: true,
+  message: "Report added successfully",
+  data: newReport,
+});
+} catch (error) {
+return res.status(500).json({
+  success: false,
+  message: "Internal Server Error",
+  error: error.message,
+});
+}
+};
+
+
+
 module.exports = { add_staff_user  ,  login  , get_all_user_staffs , get_details , update_details, delete_user_staff, add_notes,
     change_user_password, staff_forget_pass_otp,staff_verify_otp,staff_reset_password ,active_inactive_staff_user , logout , refreshToken,
 
   /* Country Section  */
-    addCountry, getCountries, editCountry , deleteCountry,
+    addCountry, getCountries, editCountry , deleteCountry,changeCountryStatus,getActiveCountries,
     /* Hospital Section */
     add_hospital , getAll_hospital , update_Hospital_Details , delete_hospital ,
 
@@ -4880,7 +5022,11 @@ module.exports = { add_staff_user  ,  login  , get_all_user_staffs , get_details
     userChat  , get_chats,
 
 
-    getFilteredReports
+    getFilteredReports,
+
+    addReports
+
+
 }
 
 

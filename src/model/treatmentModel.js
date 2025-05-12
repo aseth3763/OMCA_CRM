@@ -81,6 +81,10 @@ const treatmentSchema = new mongoose.Schema(
         appointment_Date: String,
         disease_name: String,
         status: String,
+        pickup_time : String,
+          vehicle_no : String,
+          driver_name : String,
+          driver_contact : String,
       },
     ],
 
