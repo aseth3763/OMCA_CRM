@@ -113,7 +113,7 @@ const dynamicRoleCheck = require('../middleware/role_auth');
     router.post('/update_service/:serviceId' , authenticate , roleCheck('/update_service') , userController.update_service) 
     
     // Api for delete_service
-    router.delete('/`delete_service`/:serviceId' , authenticate , roleCheck('/delete_service') , userController.delete_service)
+    router.delete('/delete_service/:serviceId' , authenticate , roleCheck('/delete_service') , userController.delete_service)
     
     // Api for paid service
     router.get('/paid_service' ,  userController.paid_service)
