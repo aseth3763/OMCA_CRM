@@ -52,8 +52,12 @@ const dynamicRoleCheck = require('../middleware/role_auth');
     router.post('/add_hospital', authenticate, roleCheck('/add_hospital'),upload.single('hospitalImage'), userController.add_hospital)
     // Api for getAll_hospital
     router.get('/getAll_hospital', authenticate, roleCheck('/getAll_hospital'), userController.getAll_hospital)
+    // Api for getActiveHospitals
+    router.get('/getActiveHospitals', authenticate, roleCheck('/getActiveHospitals'), userController.getActiveHospitals)
     // Api for update_Hospital_Details
     router.put('/update_Hospital_Details/:hospitalId', authenticate, roleCheck('/update_Hospital_Details'), upload.single('hospitalImage'), userController.update_Hospital_Details)
+    // Api for update hospital status
+    router.post('/changeHospitalStatus/:id', userController.changeHospitalStatus)
     // Api for delete_hospital
     router.delete('/delete_hospital/:hospitalId', authenticate, roleCheck('/delete_hospital'), userController.delete_hospital)
 
@@ -183,7 +187,8 @@ const dynamicRoleCheck = require('../middleware/role_auth');
         router.post('/userChat/:userId' , upload.single('attachment') ,  userController.userChat)
         // Api for get_chats
         router.get('/get_chats', userController.get_chats)
-
+        
+        // router.get('/get_all_treatment_courses_with_country', userController.get_all_treatment_courses_with_country)
         router.post("/getFilteredReports",authenticate , roleCheck('/getFilteredReports') ,userController.getFilteredReports);
         
         router.post("/addReports/:treatmentId",authenticate , roleCheck('/addReports'),upload.single('treatmentReport')  ,userController.addReports);

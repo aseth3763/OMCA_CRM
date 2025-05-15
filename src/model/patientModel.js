@@ -29,6 +29,12 @@ const patientSchema = new mongoose.Schema({
           emergency_contact_no : {
                type : Number
           },
+          address : {
+               type : String
+          },
+          patient_emergency_contact_no : {
+               type : Number
+          },
           patient_type : {
                 type : String,
                 enum : ['New' , 'Repeat' , 'Completed' , 'Dead' ],

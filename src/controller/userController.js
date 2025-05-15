@@ -1029,6 +1029,45 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
                }
           }
 
+// Api for get all active hospitals
+
+          const getActiveHospitals = async (req, res) => {
+  try {
+    const activeHospitals = await hospitalModel
+      .find({ status: 1 })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!activeHospitals || activeHospitals.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'No active hospitals found',
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Active Hospitals',
+      Hospital_Details: activeHospitals.map((h) => ({
+        hospitalId: h._id,
+        hospitalName: h.hospitalName,
+        location: h.location,
+        hospitalCode: h.hospitalCode,
+        contact: h.contact,
+        hospitalImage: h.hospitalImage,
+        status: h.status,
+      })),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error_message: error.message,
+    });
+  }
+};
+
+
     // Api for update Hospital Details 
            const update_Hospital_Details = async( req , res )=> {
             try {
@@ -1097,6 +1136,57 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
                })
            }
            }
+
+    // Api for update hospital status
+
+    const changeHospitalStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (status === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "Status is required",
+      });
+    }
+
+    if (![0, 1].includes(Number(status))) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid status value. Use 0 (inactive) or 1 (active).",
+      });
+    }
+
+    const updatedHospital = await hospitalModel.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+
+    console.log(updatedHospital)
+
+    if (!updatedHospital) {
+      return res.status(404).json({
+        success: false,
+        message: "Hospital not found with the given ID",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Hospital status updated successfully",
+      data: updatedHospital,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+      error: error.message,
+    });
+  }
+};
 
 
            // delete Hospital
@@ -1171,6 +1261,8 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
               gender, 
               email, 
               emergency_contact_no, 
+              address,
+              patient_emergency_contact_no,
               country,
               disease_name,
             } = req.body;
@@ -1203,6 +1295,8 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
               'gender', 
               'email', 
               'country', 
+              "address",
+              "patient_emergency_contact_no",
               'emergency_contact_no',
               'disease_name'
             ];
@@ -1241,7 +1335,9 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
                 role: user.role,
                 userId: userId,
               }],
-              disease_name
+              disease_name,
+              address,
+              patient_emergency_contact_no,
             });
         
             await newEnq.save();
@@ -1325,6 +1421,8 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
                 gender: 1,
                 country: 1,
                 emergency_contact_no: 1,
+                address : 1,
+                patient_emergency_contact_no : 1,
                 enq_status: 1,
                 created_by: 1,
                 disease_name: 1,
@@ -1352,6 +1450,8 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
             gender: p.gender,
             country: p.country,
             emergency_contact: p.emergency_contact_no,
+            address : p.address,
+            patient_emergency_contact_no:p.patient_emergency_contact_no,
             Enquiry_status: p.enq_status,
             createdBy: p.created_by[0]?.role || 'N/A', 
             disease_name: p.disease_name
@@ -1401,6 +1501,8 @@ const get_Enq = async( req , res )=> {
                      email : enq.email ,
                      gender : enq.gender ,
                      emergency_contact_no : enq.emergency_contact_no,
+                     address:enq.address,
+                     patient_emergency_contact_no:enq.patient_emergency_contact_no,
                      enq_status : enq.enq_status,                
                       created_by : enq.created_by[0].role,
                       disease_name : enq.disease_name,
@@ -1426,7 +1528,7 @@ const update_enq = async( req , res )=> {
   try {
         const enquiryId = req.params.enquiryId
         const {  name , age , gender , email , emergency_contact_no ,
-                country  , discussionNotes , disease_name  } = req.body
+                country  , discussionNotes , disease_name , address,patient_emergency_contact_no } = req.body
 
             // check for patient Id
           if(!enquiryId)
@@ -1476,6 +1578,16 @@ const update_enq = async( req , res )=> {
                  if(disease_name)
                   {
                     enq.disease_name = disease_name
+                  }
+                 
+                 if(address)
+                  {
+                    enq.address = address
+                  }
+                 
+                 if(patient_emergency_contact_no)
+                  {
+                    enq.patient_emergency_contact_no = patient_emergency_contact_no
                   }
                  
 
@@ -1567,6 +1679,8 @@ const update_Enquiry_status = async (req, res) => {
         exist_patient.phoneCode = enquiry.phoneCode;
         exist_patient.gender = enquiry.gender;
         exist_patient.emergency_contact_no = enquiry.emergency_contact_no;
+        exist_patient.address = enquiry.address;
+        exist_patient.patient_emergency_contact_no = enquiry.patient_emergency_contact_no;
         exist_patient.patient_disease = {
           disease_name: enquiry.disease_name,
         };
@@ -1588,6 +1702,8 @@ const update_Enquiry_status = async (req, res) => {
           patient_disease: {
             disease_name: enquiry.disease_name,
           },
+          address : enquiry.address,
+          patient_emergency_contact_no : enquiry.patient_emergency_contact_no,
           created_by: enquiry.created_by,
           discussionNotes: enquiry.discussionNotes,
           medical_History: [],
@@ -1599,17 +1715,17 @@ const update_Enquiry_status = async (req, res) => {
       }
     }
 
-    // ✅ Send WhatsApp message to the patient
+    //  Send WhatsApp message to the patient
     if (enquiry.emergency_contact_no && enquiry.phoneCode) {
       const phoneCode = enquiry.phoneCode.startsWith('+') ? enquiry.phoneCode : `+${enquiry.phoneCode}`;
       const fullNumber = `${phoneCode}${String(enquiry.emergency_contact_no)}`;
       const waMessage = `Hello ${enquiry.name}, your enquiry status has been updated to "${enquiry.enq_status}".\n\nThank you for choosing our service!`;
 
-      try {
+      try {79
         const result = await sendWhatsAppMessage(fullNumber, waMessage);
-        console.log("📨 WhatsApp Sent:", result);
+        console.log(" WhatsApp Sent:", result);
       } catch (waErr) {
-        console.error("❌ WhatsApp Error:", waErr.message);
+        console.error(" WhatsApp Error:", waErr.message);
       }
     }
 
@@ -1874,6 +1990,8 @@ const add_notes = async(req,res)=>{
                         gender: patient.gender,
                         phoneCode : patient.phoneCode,
                         emergency_contact_no: patient.emergency_contact_no,
+                        address:patient.address,
+                        patient_emergency_contact_no : patient.patient_emergency_contact_no,
                         patient_status: patient.patient_status,
                         patient_disease: patient.patient_disease.map((m) => ({
                             disease_name: m.disease_name,
@@ -2758,40 +2876,40 @@ const add_notes = async(req,res)=>{
 
         // Api for get all the treatement courses
         
-         const get_all_treatment_courses = async( req , res )=> {
-             try { 
-                        // check for all treatment courses
+        //  const get_all_treatment_courses = async( req , res )=> {
+        //      try { 
+        //                 // check for all treatment courses
                          
-                        const treatments = await treatement_course_model.find({ }).sort({ createdAt : -1 }).lean()
-                        if(!treatments)
-                        {
-                          return res.status(400).json({
-                               success : false ,
-                               message : 'No Treatment Course added yet'
-                          })
-                        }
+        //                 const treatments = await treatement_course_model.find({ }).sort({ createdAt : -1 }).lean()
+        //                 if(!treatments)
+        //                 {
+        //                   return res.status(400).json({
+        //                        success : false ,
+        //                        message : 'No Treatment Course added yet'
+        //                   })
+        //                 }
 
-                        return res.status(200).json({
-                              success : true ,
-                              message : 'all Treatement Course',
-                              traement_course : treatments.map((t)=> ({
-                                       course_id : t._id,
-                                      course_name : t.course_name,
-                                      course_price :  t.course_price ,
-                                       categories : t.categories.map((c)=> ({
-                                             category_name : c.category_name,
-                                             category_id : c._id
-                                       }))
-                              }))
-                        })
-             } catch (error) {
-                  return res.status(500).json({
-                       success : false ,
-                       message : 'Server error',
-                       error_message : error.message
-                  })
-             }
-         }
+        //                 return res.status(200).json({
+        //                       success : true ,
+        //                       message : 'all Treatement Course',
+        //                       traement_course : treatments.map((t)=> ({
+        //                                course_id : t._id,
+        //                               course_name : t.course_name,
+        //                               course_price :  t.course_price ,
+        //                                categories : t.categories.map((c)=> ({
+        //                                      category_name : c.category_name,
+        //                                      category_id : c._id
+        //                                }))
+        //                       }))
+        //                 })
+        //      } catch (error) {
+        //           return res.status(500).json({
+        //                success : false ,
+        //                message : 'Server error',
+        //                error_message : error.message
+        //           })
+        //      }
+        //  }
 
          // Api for get treatement course by id
 
@@ -2843,57 +2961,95 @@ const add_notes = async(req,res)=>{
          
           // Api for update treatment Course price
                 
-          const update_treatment_course = async (req, res) => {
-            try {
-              const { treatment_course_id } = req.params;
-              const { course_name , course_price } = req.body;
-          
-              // Validate treatment_course_id
-              if (!treatment_course_id) {
-                return res.status(400).json({
-                  success: false,
-                  message: 'Treatment course ID is required.', 
-                });
-              }
+      const update_treatment_course = async (req, res) => {
+  try {
+    const { treatment_course_id } = req.params;
+    const { course_name, course_price, categories } = req.body;
 
-              // Check for treatment course existence
-              const treatment_course = await treatement_course_model.findById(treatment_course_id);
-              if (!treatment_course) {
-                return res.status(400).json({
-                  success: false,
-                  message: 'Treatment course not found.',
-                });
-              }                        
-          
-              // Update fields
-              if (course_name && course_name !== treatment_course.course_name) {
-                treatment_course.course_name = course_name;
-              }
-              if (course_price && course_price !== treatment_course.course_price) {
-                if (isNaN(course_price) || course_price <= 0) {
-                  return res.status(400).json({
-                    success: false,
-                    message: 'Invalid course price. It must be a positive number.',
-                  });
-                }
-                treatment_course.course_price = course_price;
-              }
-          
-              await treatment_course.save();
-          
-              return res.status(200).json({
-                success: true,
-                message: 'Treatment course details updated successfully.',
-              });
-                 
-            } catch (error) {
-              return res.status(500).json({
-                success: false,
-                message: 'Server error.',
-                error_message: error.message,
-              });
-            }
-          };
+    // Validate ID
+    if (!treatment_course_id) {
+      return res.status(400).json({
+        success: false,
+        message: 'Treatment course ID is required.',
+      });
+    }
+
+    // Fetch course
+    const treatment_course = await treatement_course_model.findById(treatment_course_id);
+    if (!treatment_course) {
+      return res.status(404).json({
+        success: false,
+        message: 'Treatment course not found.',
+      });
+    }
+
+    // Update course_name
+    if (course_name && course_name !== treatment_course.course_name) {
+      treatment_course.course_name = course_name;
+    }
+
+    // Update course_price
+    if (course_price && course_price !== treatment_course.course_price) {
+      if (isNaN(course_price) || course_price <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid course price. It must be a positive number.',
+        });
+      }
+      treatment_course.course_price = course_price;
+    }
+
+    // Update specific categories by ID
+    if (categories && Array.isArray(categories)) {
+      for (const categoryUpdate of categories) {
+        const { category_id, category_name } = categoryUpdate;
+
+        if (!category_id || !category_name) {
+          return res.status(400).json({
+            success: false,
+            message: 'Each category update must include category_id and category_name.',
+          });
+        }
+
+        const existingCategory = treatment_course.categories.id(category_id);
+        if (existingCategory) {
+          existingCategory.category_name = category_name;
+        } else {
+          return res.status(404).json({
+            success: false,
+            message: `Category with ID ${category_id} not found.`,
+          });
+        }
+      }
+    }
+
+    await treatment_course.save();
+
+   return res.status(200).json({
+  success: true,
+  message: 'Treatment course updated successfully.',
+  data: {
+    _id: treatment_course._id,
+    course_name: treatment_course.course_name,
+    course_price: treatment_course.course_price,
+    createdAt: treatment_course.createdAt,
+    updatedAt: treatment_course.updatedAt,
+    categories: treatment_course.categories.map(cat => ({
+      category_name: cat.category_name,
+      category_id: cat._id
+    }))
+  }
+});
+
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Server error.',
+      error_message: error.message,
+    });
+  }
+};
 
 
           
@@ -4896,7 +5052,73 @@ const getFilteredReports = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
-      
+   
+const get_all_treatment_courses = async (req, res) => {
+  try {
+    const courses = await treatement_course_model.find({}).sort({ createdAt: -1 }).lean();
+
+    if (!courses.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'No Treatment Course added yet',
+      });
+    }
+
+    const results = [];
+
+    for (const course of courses) {
+      const treatments = await treatmentModel.find({ treatment_course_id: course._id }).lean();
+      const patientIds = treatments.map(t => t.patientId);
+
+      let most_demanded_country = '';
+
+      if (patientIds.length > 0) {
+        const patients = await patientModel.find(
+          { patientId: { $in: patientIds } },
+          { country: 1, _id: 0 }
+        ).lean();
+
+        const countryCountMap = {};
+        for (const p of patients) {
+          const country = p.country?.trim();
+          if (country) {
+            countryCountMap[country] = (countryCountMap[country] || 0) + 1;
+          }
+        }
+
+        const sortedCountries = Object.entries(countryCountMap).sort((a, b) => b[1] - a[1]);
+        if (sortedCountries.length > 0) {
+          most_demanded_country = sortedCountries[0][0];
+        }
+      }
+
+      results.push({
+        course_id: course._id,
+        course_name: course.course_name,
+        course_price: course.course_price,
+        most_demanded_country,
+        categories: course.categories.map(c => ({
+          category_name: c.category_name,
+          category_id: c._id
+        })),
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'All Treatment Courses with Most Demanded Country',
+      treatment_courses: results,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error_message: error.message,
+    });
+  }
+};
+
 
 const allowedFileTypes = ['.pdf', '.doc', '.docx', '.jpg', '.jpeg', '.png'];
 
@@ -4914,7 +5136,7 @@ const addReports = async (req, res) => {
     }
 
     // Find treatment record
-    const treatmentData = await treatmentModel.findById(treatmentId);
+    const treatmentData = await treatmentModel.findOne({treatment_id:treatmentId});
     if (!treatmentData) {
       return res.status(404).json({
         success: false,
@@ -4947,8 +5169,8 @@ const addReports = async (req, res) => {
       });
     }
  // Save report
- const newReport = await reportModel.create({
-  treatmentId,
+const newReport = await reportModel.create({
+  treatmentId: treatmentData.treatment_id, // use the ObjectId from the found treatment
   treatment_course_name: treatmentData.treatment_course_name,
   reportTitle,
   treatmentReport: req.file.filename,
@@ -4976,7 +5198,7 @@ module.exports = { add_staff_user  ,  login  , get_all_user_staffs , get_details
   /* Country Section  */
     addCountry, getCountries, editCountry , deleteCountry,changeCountryStatus,getActiveCountries,
     /* Hospital Section */
-    add_hospital , getAll_hospital , update_Hospital_Details , delete_hospital ,
+    add_hospital , getAll_hospital ,getActiveHospitals, update_Hospital_Details ,changeHospitalStatus, delete_hospital ,
 
     /* Enquiry Section */
 
@@ -4984,7 +5206,9 @@ module.exports = { add_staff_user  ,  login  , get_all_user_staffs , get_details
 
     
     /* treatment Course */
-    add_treatment_course , get_all_treatment_courses ,get_treatment_course_by_id, update_treatment_course  , delete_treatment_course ,
+    add_treatment_course ,
+    //  get_all_treatment_courses ,
+     get_treatment_course_by_id, update_treatment_course  , delete_treatment_course ,
 
     /* Patient Section */
     all_patients , deletePatient, get_notes_by_patient, generate_sampleFile ,
@@ -5023,6 +5247,8 @@ module.exports = { add_staff_user  ,  login  , get_all_user_staffs , get_details
 
 
     getFilteredReports,
+
+    get_all_treatment_courses,
 
     addReports
 

@@ -23,6 +23,12 @@ const enquirySchema = new mongoose.Schema({
           emergency_contact_no : {
                type : Number
           },
+          address : {
+               type : String
+          },
+          patient_emergency_contact_no : {
+               type : Number
+          },
           disease_name : String  ,
           enq_status : {
                type : String,

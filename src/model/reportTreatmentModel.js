@@ -2,8 +2,7 @@ const mongoose = require("mongoose")
 
 const reportSchema = new mongoose.Schema({
     treatmentId : {
-        type : mongoose.Schema.Types.ObjectId,
-        ref : "treatment"
+        type : String
     },
     treatment_course_name : {
         type : String
