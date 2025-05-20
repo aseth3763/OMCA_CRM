@@ -1265,6 +1265,8 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
               patient_emergency_contact_no,
               country,
               disease_name,
+              patient_relation_name,
+              patient_relation,
             } = req.body;
         
             let userId = req.params.userId;
@@ -1277,6 +1279,21 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
               });
             }
         
+            const imageFields = [ ".jpeg",".jpg",".png"]
+            let patient_relation_id = ""
+            if(req.file){
+              const fileExtension = path.extname(req.file.filename).toLowerCase()
+                if(imageFields.includes(fileExtension)){
+                   patient_relation_id = req.file.filename
+                }
+              else{
+                return res.status(400).json({
+                  success : false,
+                    message: 'Invalid file type. Only .jpg, .jpeg, and .png files are allowed.'
+                })
+              }
+            }
+
             // Fetch user
             const user = await userModel.findOne({ _id: userId });
             if (!user) {
@@ -1286,7 +1303,7 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
               });
             }
         
-            const countryData = await countryModel.findOne({ countryName: country });
+            const countryData = await countryModel.findOne({ name: country });
         
             // Required fields check
             const requiredFields = [
@@ -1296,6 +1313,8 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
               'email', 
               'country', 
               "address",
+              "patient_relation_name",
+              "patient_relation",
               "patient_emergency_contact_no",
               'emergency_contact_no',
               'disease_name'
@@ -1337,12 +1356,15 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
               }],
               disease_name,
               address,
+              patient_relation_name,
+              patient_relation,
               patient_emergency_contact_no,
+              patient_relation_id
             });
         
             await newEnq.save();
         
-            // ✅ Send WhatsApp confirmation
+            //  Send WhatsApp confirmation
             if (emergency_contact_no && countryData?.phoneCode) {
               const phoneCode = countryData.phoneCode.startsWith('+') 
                 ? countryData.phoneCode 
@@ -1353,9 +1375,9 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
         
               try {
                 const waResult = await sendWhatsAppMessage(fullNumber, waMessage);
-                console.log("📨 WhatsApp Sent:", waResult);
+                console.log("WhatsApp Sent:", waResult);
               } catch (waErr) {
-                console.error("❌ WhatsApp Error:", waErr.message);
+                console.error("WhatsApp Error:", waErr.message);
               }
             }
         
@@ -1426,6 +1448,10 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
                 enq_status: 1,
                 created_by: 1,
                 disease_name: 1,
+                patient_relation_name:1,
+patient_relation:1,
+patient_relation_id:1
+
               }
             }
           ]);
@@ -1452,6 +1478,9 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
             emergency_contact: p.emergency_contact_no,
             address : p.address,
             patient_emergency_contact_no:p.patient_emergency_contact_no,
+            patient_relation_name:p.patient_relation_name,
+              patient_relation:p.patient_relation,
+              patient_relation_id : p.patient_relation_id,
             Enquiry_status: p.enq_status,
             createdBy: p.created_by[0]?.role || 'N/A', 
             disease_name: p.disease_name
@@ -1503,6 +1532,9 @@ const get_Enq = async( req , res )=> {
                      emergency_contact_no : enq.emergency_contact_no,
                      address:enq.address,
                      patient_emergency_contact_no:enq.patient_emergency_contact_no,
+                     patient_relation_name:enq.patient_relation_name,
+              patient_relation:enq.patient_relation,
+              patient_relation_id : enq.patient_relation_id,
                      enq_status : enq.enq_status,                
                       created_by : enq.created_by[0].role,
                       disease_name : enq.disease_name,
@@ -1524,102 +1556,94 @@ const get_Enq = async( req , res )=> {
 
 // Api for update Enquiry
 
-const update_enq = async( req , res )=> {
+const update_enq = async (req, res) => {
   try {
-        const enquiryId = req.params.enquiryId
-        const {  name , age , gender , email , emergency_contact_no ,
-                country  , discussionNotes , disease_name , address,patient_emergency_contact_no } = req.body
+    const enquiryId = req.params.enquiryId;
+    const {
+      name,
+      age,
+      gender,
+      email,
+      emergency_contact_no,
+      country,
+      disease_name,
+      address,
+      patient_emergency_contact_no,
+      patient_relation_name,
+      patient_relation,
+      discussionNotes
+    } = req.body;
 
-            // check for patient Id
-          if(!enquiryId)
-          {
-                res.status(400).json({
-                    success : false ,
-                    message : 'enquiryId Required'
-                })
-          }
-          
-             // check for enquiry 
-             
-             const enq = await enquiryModel.findOne({ enquiryId : enquiryId })
-             if(!enq)
-             {
-              return res.status(400).json({
-                   success : false ,
-                   message : 'No enquiry Found'
-              })
-             }
-               
-                 if(name)
-                 {
-                    enq.name = name
-                 }
-                 
-                 if(age)
-                  {
-                    enq.age = age
-                  }
-                 if(gender)
-                  {
-                    enq.gender = gender
-                  }
-                 if(email)
-                  {
-                    enq.email = email
-                  }
-                 if(emergency_contact_no)
-                  {
-                    enq.emergency_contact_no = emergency_contact_no
-                  }
-                 if(country)
-                  {
-                    enq.country = country
-                  }
-                 if(disease_name)
-                  {
-                    enq.disease_name = disease_name
-                  }
-                 
-                 if(address)
-                  {
-                    enq.address = address
-                  }
-                 
-                 if(patient_emergency_contact_no)
-                  {
-                    enq.patient_emergency_contact_no = patient_emergency_contact_no
-                  }
-                 
+    if (!enquiryId) {
+      return res.status(400).json({
+        success: false,
+        message: 'enquiryId Required'
+      });
+    }
 
+    const enq = await enquiryModel.findOne({ enquiryId });
+    if (!enq) {
+      return res.status(400).json({
+        success: false,
+        message: 'No enquiry Found'
+      });
+    }
 
-                let dNotes = []
-                  var today = new Date()
-                  if(discussionNotes)
-                  {
-                    dNotes.push({
-                           note : discussionNotes ,
-                           date : today
-                    })
+    // Update fields if provided
+    if (name) enq.name = name;
+    if (age) enq.age = age;
+    if (gender) enq.gender = gender;
+    if (email) enq.email = email;
+    if (emergency_contact_no) enq.emergency_contact_no = emergency_contact_no;
+    if (country) enq.country = country;
+    if (disease_name) enq.disease_name = disease_name;
+    if (address) enq.address = address;
+    if (patient_emergency_contact_no) enq.patient_emergency_contact_no = patient_emergency_contact_no;
+    if (patient_relation_name) enq.patient_relation_name = patient_relation_name;
+    if (patient_relation) enq.patient_relation = patient_relation;
 
-                    enq.discussionNotes = dNotes
+    // Handle patient_relation_id (image)
+    const imageFields = [".jpeg", ".jpg", ".png"];
+    if (req.file) {
+      const fileExtension = path.extname(req.file.filename).toLowerCase();
+      if (imageFields.includes(fileExtension)) {
+        enq.patient_relation_id = req.file.filename;
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid file type. Only .jpg, .jpeg, and .png files are allowed.'
+        });
+      }
+    }
 
-                  }
+    // Append discussionNotes if provided
+    if (discussionNotes) {
+      const today = new Date();
+      if (!Array.isArray(enq.discussionNotes)) {
+        enq.discussionNotes = [];
+      }
+      enq.discussionNotes.push({
+        note: discussionNotes,
+        date: today
+      });
+    }
 
-                  await enq.save()
-                  return res.status(200).json({
-                       success : true ,
-                       message : 'enquiry Details updated'
-                  })
-                  
+    await enq.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Enquiry details updated'
+    });
 
   } catch (error) {
-       return res.status(500).json({
-           success : false ,
-           message : 'Server error',
-           error_message : error.message
-       })
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error_message: error.message
+    });
   }
-}
+};
+
 
 
 // Api for update Enquiry status
@@ -1681,6 +1705,9 @@ const update_Enquiry_status = async (req, res) => {
         exist_patient.emergency_contact_no = enquiry.emergency_contact_no;
         exist_patient.address = enquiry.address;
         exist_patient.patient_emergency_contact_no = enquiry.patient_emergency_contact_no;
+        exist_patient.patient_relation = enquiry.patient_relation
+        exist_patient.patient_relation_name = enquiry.patient_relation_name
+        exist_patient.patient_relation_id = enquiry.patient_relation_id
         exist_patient.patient_disease = {
           disease_name: enquiry.disease_name,
         };
@@ -1705,6 +1732,9 @@ const update_Enquiry_status = async (req, res) => {
           address : enquiry.address,
           patient_emergency_contact_no : enquiry.patient_emergency_contact_no,
           created_by: enquiry.created_by,
+          patient_relation : enquiry.patient_relation,
+          patient_relation_name : enquiry.patient_relation_name,
+          patient_relation_id : enquiry.patient_relation_id,
           discussionNotes: enquiry.discussionNotes,
           medical_History: [],
           Kyc_details: [],

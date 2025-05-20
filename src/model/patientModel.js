@@ -35,6 +35,15 @@ const patientSchema = new mongoose.Schema({
           patient_emergency_contact_no : {
                type : Number
           },
+          patient_relation_name : {
+               type : String
+          },
+          patient_relation : {
+               type : String
+          },
+          patient_relation_id : {
+               type : String
+          },
           patient_type : {
                 type : String,
                 enum : ['New' , 'Repeat' , 'Completed' , 'Dead' ],

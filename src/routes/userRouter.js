@@ -64,13 +64,13 @@ const dynamicRoleCheck = require('../middleware/role_auth');
                                                   /* Enquiry Section */
 
              // Api for add new Enquiry
-    router.post('/add_new_enq/:userId', authenticate, roleCheck('/add_new_enq'),  userController.add_new_enq)
+    router.post('/add_new_enq/:userId', authenticate, roleCheck('/add_new_enq'),upload.single("relation_id"),  userController.add_new_enq)
     // Api for all_Enq
     router.get('/all_Enq', authenticate , roleCheck('/all_Enq') , userController.all_Enq)
     // Api for get_Enq
     router.get('/get_Enq/:enquiryId' , authenticate , roleCheck('/get_Enq') , userController.get_Enq)
     // Api for update Enquiry
-     router.put('/update_enq/:enquiryId' , authenticate , roleCheck('/update_enq') , userController.update_enq)
+     router.put('/update_enq/:enquiryId' , authenticate , roleCheck('/update_enq') , upload.single("relation_id"),userController.update_enq)
      // Api for update_Enquiry_status
      router.delete('/deleteEnquiry/:enquiryId' ,authenticate , roleCheck('/deleteEnquiry') , userController.deleteEnquiry)
      router.post('/update_Enquiry_status/:enquiryId' , authenticate , roleCheck('/update_Enquiry_status') , userController.update_Enquiry_status)
