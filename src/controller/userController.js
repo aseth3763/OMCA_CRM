@@ -1944,7 +1944,8 @@ const add_notes = async(req,res)=>{
                                           patient_status : p.patient_status,
                                           patient_type : p.patient_type,
                                           enquiryId : p.enquiryId,
-                                           createdBy : p.created_by[0].role,                                   
+                                           createdBy : p.created_by[0].role,   
+                                           createdAt : p.createdAt                                
                                          
                                  }))
                             })
@@ -3939,6 +3940,7 @@ const add_notes = async(req,res)=>{
        { header: "Emergency Contact", key: "emergency_contact_no", width: 20 },
        { header: "Age", key: "age", width: 10 },
        { header: "Treatment Course", key: "treatment_course_name", width: 20 },
+       { header: "Date", key: "createdAt", width: 20 },
      ];
  
      patients.forEach(patient => {
@@ -3951,6 +3953,7 @@ const add_notes = async(req,res)=>{
          emergency_contact_no: patient.emergency_contact_no || 'N/A',
          age: patient.age || 'N/A',
          treatment_course_name: patient.treatment_course_name || 'N/A',
+         createdAt: patient.createdAt || 'N/A',
        });
      });
  
@@ -4916,40 +4919,39 @@ for (let course of allCourses) {
 
                                                       /* All earnings  */
       
-  const totalEarnings = async( req , res)=> {
-         try {
-               // check for all treatments
-               const treatments = await treatmentModel.find({});   
-               if(!treatments)
-               {
-                return res.status(400).json({
-                     success : false ,
-                     message : 'No transaction found'
-                })
-               }
+  const totalEarnings = async (req, res) => {
+  try {
+    // Fetch all treatments, sorted by creation date (latest first)
+    const treatments = await treatmentModel.find({}).sort({ createdAt: -1 });
 
-               return res.status(200).json({
-                    success : true ,
-                    message : 'All Earnings',
-                    earnings : treatments.map((e)=> ({
-                      patientId : e.patientId,
-                      patient_name : e.patient_name,
-                      Disease_agreement : e.treatment_course_name,
-                      total_Amount : e.totalCharge,
-                      amount_paid : (e.totalCharge - e.duePayment),
-                      remaining_balance : e.duePayment
+    if (!treatments || treatments.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No transaction found',
+      });
+    }
 
-                    }))
-               })
-                
-         } catch (error) {
-             return res.status(500).json({
-                 success : false ,
-                 message : 'Server error',
-                 error_message : error.message
-             })
-         }
+    return res.status(200).json({
+      success: true,
+      message: 'All Earnings',
+      earnings: treatments.map((e) => ({
+        patientId: e.patientId,
+        patient_name: e.patient_name,
+        Disease_agreement: e.treatment_course_name,
+        total_Amount: e.totalCharge,
+        amount_paid: e.totalCharge - e.duePayment,
+        remaining_balance: e.duePayment,
+      })),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error_message: error.message,
+    });
   }
+};
+
                   
   /* Chat Section */
 
