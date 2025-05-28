@@ -38,6 +38,9 @@ const enquirySchema = new mongoose.Schema({
           patient_relation_id : {
                type : String
           },
+          patient_id_proof : {
+               type : String
+          },
           disease_name : String  ,
           enq_status : {
                type : String,

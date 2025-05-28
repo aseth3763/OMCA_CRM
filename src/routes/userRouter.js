@@ -64,13 +64,31 @@ const dynamicRoleCheck = require('../middleware/role_auth');
                                                   /* Enquiry Section */
 
              // Api for add new Enquiry
-    router.post('/add_new_enq/:userId', authenticate, roleCheck('/add_new_enq'),upload.single("relation_id"),  userController.add_new_enq)
+router.post(
+  '/add_new_enq/:userId',
+  authenticate,
+  roleCheck('/add_new_enq'),
+  upload.fields([
+    { name: 'relation_id', maxCount: 1 },
+    { name: 'patient_id_proof', maxCount: 1 }
+  ]),
+  userController.add_new_enq
+);
     // Api for all_Enq
     router.get('/all_Enq', authenticate , roleCheck('/all_Enq') , userController.all_Enq)
     // Api for get_Enq
     router.get('/get_Enq/:enquiryId' , authenticate , roleCheck('/get_Enq') , userController.get_Enq)
     // Api for update Enquiry
-     router.put('/update_enq/:enquiryId' , authenticate , roleCheck('/update_enq') , upload.single("relation_id"),userController.update_enq)
+router.put(
+  '/update_enq/:enquiryId',
+  authenticate,
+  roleCheck('/update_enq'),
+  upload.fields([
+    { name: 'relation_id', maxCount: 1 },
+    { name: 'patient_id_proof', maxCount: 1 }
+  ]),
+  userController.update_enq
+);
      // Api for update_Enquiry_status
      router.delete('/deleteEnquiry/:enquiryId' ,authenticate , roleCheck('/deleteEnquiry') , userController.deleteEnquiry)
      router.post('/update_Enquiry_status/:enquiryId' , authenticate , roleCheck('/update_Enquiry_status') , userController.update_Enquiry_status)
@@ -90,7 +108,7 @@ const dynamicRoleCheck = require('../middleware/role_auth');
     // Api for get_patient
     router.get('/get_patient/:patientId' , authenticate, roleCheck('/get_patient'), userController.get_patient)
     // Api for update_patient
-    router.put('/update_patient/:patientId', authenticate, roleCheck('/update_patient'),  userController.update_patient)
+    router.put('/update_patient/:patientId', authenticate, roleCheck('/update_patient'), upload.single("relation_id"), userController.update_patient)
     // Api for assign_patient_to_hospital
     router.post('/assign_patient_to_hospital/:patientId' , authenticate , roleCheck('/assign_patient_to_hospital') , userController.assign_patient_to_hospital)
     // APi for update_patient_status

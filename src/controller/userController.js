@@ -1279,20 +1279,41 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
               });
             }
         
-            const imageFields = [ ".jpeg",".jpg",".png"]
-            let patient_relation_id = ""
-            if(req.file){
-              const fileExtension = path.extname(req.file.filename).toLowerCase()
-                if(imageFields.includes(fileExtension)){
-                   patient_relation_id = req.file.filename
-                }
-              else{
-                return res.status(400).json({
-                  success : false,
-                    message: 'Invalid file type. Only .jpg, .jpeg, and .png files are allowed.'
-                })
-              }
-            }
+            const imageFields = [".jpeg", ".jpg", ".png"];
+
+let patient_relation_id = "";
+let patient_id_proof = "";
+
+if (req.files) {
+  // Handle relation_id image
+  const relationFile = req.files['relation_id']?.[0];
+  if (relationFile) {
+    const ext = path.extname(relationFile.filename).toLowerCase();
+    if (imageFields.includes(ext)) {
+      patient_relation_id = relationFile.filename;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file type for relation_id. Only .jpg, .jpeg, and .png allowed.'
+      });
+    }
+  }
+
+  // Handle patient_id_proof image
+  const idProofFile = req.files['patient_id_proof']?.[0];
+  if (idProofFile) {
+    const ext = path.extname(idProofFile.filename).toLowerCase();
+    if (imageFields.includes(ext)) {
+      patient_id_proof = idProofFile.filename;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid file type for patient_id_proof. Only .jpg, .jpeg, and .png allowed.'
+      });
+    }
+  }
+}
+
 
             // Fetch user
             const user = await userModel.findOne({ _id: userId });
@@ -1313,8 +1334,6 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
               'email', 
               'country', 
               "address",
-              "patient_relation_name",
-              "patient_relation",
               "patient_emergency_contact_no",
               'emergency_contact_no',
               'disease_name'
@@ -1356,10 +1375,11 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
               }],
               disease_name,
               address,
-              patient_relation_name,
-              patient_relation,
+              patient_relation_name:  patient_relation_name || "",
+              patient_relation :  patient_relation || "",
               patient_emergency_contact_no,
-              patient_relation_id
+              patient_relation_id,
+              patient_id_proof
             });
         
             await newEnq.save();
@@ -1450,7 +1470,8 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp")
                 disease_name: 1,
                 patient_relation_name:1,
 patient_relation:1,
-patient_relation_id:1
+patient_relation_id:1,
+patient_id_proof : 1
 
               }
             }
@@ -1481,6 +1502,7 @@ patient_relation_id:1
             patient_relation_name:p.patient_relation_name,
               patient_relation:p.patient_relation,
               patient_relation_id : p.patient_relation_id,
+              patient_id_proof : p.patient_id_proof,
             Enquiry_status: p.enq_status,
             createdBy: p.created_by[0]?.role || 'N/A', 
             disease_name: p.disease_name
@@ -1535,6 +1557,7 @@ const get_Enq = async( req , res )=> {
                      patient_relation_name:enq.patient_relation_name,
               patient_relation:enq.patient_relation,
               patient_relation_id : enq.patient_relation_id,
+              patient_id_proof : enq.patient_id_proof,
                      enq_status : enq.enq_status,                
                       created_by : enq.created_by[0].role,
                       disease_name : enq.disease_name,
@@ -1602,17 +1625,33 @@ const update_enq = async (req, res) => {
     if (patient_relation_name) enq.patient_relation_name = patient_relation_name;
     if (patient_relation) enq.patient_relation = patient_relation;
 
-    // Handle patient_relation_id (image)
+    // Handle uploaded files
     const imageFields = [".jpeg", ".jpg", ".png"];
-    if (req.file) {
-      const fileExtension = path.extname(req.file.filename).toLowerCase();
-      if (imageFields.includes(fileExtension)) {
-        enq.patient_relation_id = req.file.filename;
-      } else {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid file type. Only .jpg, .jpeg, and .png files are allowed.'
-        });
+    if (req.files) {
+      const relationFile = req.files['relation_id']?.[0];
+      if (relationFile) {
+        const ext = path.extname(relationFile.filename).toLowerCase();
+        if (imageFields.includes(ext)) {
+          enq.patient_relation_id = relationFile.filename;
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid file type for relation_id. Only .jpg, .jpeg, and .png allowed.'
+          });
+        }
+      }
+
+      const idProofFile = req.files['patient_id_proof']?.[0];
+      if (idProofFile) {
+        const ext = path.extname(idProofFile.filename).toLowerCase();
+        if (imageFields.includes(ext)) {
+          enq.patient_id_proof = idProofFile.filename;
+        } else {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid file type for patient_id_proof. Only .jpg, .jpeg, and .png allowed.'
+          });
+        }
       }
     }
 
@@ -1942,6 +1981,10 @@ const add_notes = async(req,res)=>{
                                           treatment_course_name : p.treatment_course_name,
                                           emergency_contact : p.emergency_contact_no,
                                           patient_status : p.patient_status,
+                                          patient_emergency_contact_no : p.patient_emergency_contact_no,
+                                          patient_relation : p.patient_relation,
+                                          patient_relation_name:p.patient_relation_name,
+                                          patient_relation_id:p.patient_relation_id,
                                           patient_type : p.patient_type,
                                           enquiryId : p.enquiryId,
                                            createdBy : p.created_by[0].role,   
@@ -2339,7 +2382,7 @@ const add_notes = async(req,res)=>{
         try {
               const patientId = req.params.patientId
               const {  patient_name , age , gender , email , emergency_contact_no ,
-                      country  , discussionNotes  } = req.body
+                      country  , discussionNotes , patient_emergency_contact_no,patient_relation,patient_relation_name } = req.body
 
                   // check for patient Id
                 if(!patientId)
@@ -2381,6 +2424,21 @@ const add_notes = async(req,res)=>{
                        if(emergency_contact_no)
                         {
                            patient.emergency_contact_no = emergency_contact_no
+                        }
+                       if(patient_emergency_contact_no)
+                        {
+                           patient.patient_emergency_contact_no = patient_emergency_contact_no
+                        }
+                       if(patient_relation)
+                        {
+                           patient.patient_relation = patient_relation
+                        }
+                       if(patient_relation_name)
+                        {
+                           patient.patient_relation_name = patient_relation_name
+                        }
+                        if(req.file){
+                          patient.patient_relation_id = req.file.filename
                         }
                        if(country)
                         {
