@@ -161,7 +161,7 @@ router.put(
                                           /* treatment Course section */
     
      // Api for add_treatment_course
-     router.post('/add_treatment_course', authenticate, roleCheck('/add_treatment_course'), userController.add_treatment_course)
+     router.post('/add_treatment_course', authenticate, roleCheck('/add_treatment_course'), upload.single("icon_image"),userController.add_treatment_course)
      // Api for get_all_treatment_courses
      router.get('/get_all_treatment_courses', authenticate, roleCheck('/get_all_treatment_course'),  userController.get_all_treatment_courses)
      // Api for get_treatment_course by id
@@ -170,7 +170,7 @@ router.put(
      // Api for delete_treatment_course
      router.delete('/delete_treatment_course/:courseId', authenticate, roleCheck('/delete_treatment_coursel'), userController.delete_treatment_course )
      // Api for update_treatment_course_details
-     router.put('/update_treatment_course/:treatment_course_id' , authenticate, roleCheck('/update_treatment_course') , userController.update_treatment_course  )
+     router.put('/update_treatment_course/:treatment_course_id' , authenticate, roleCheck('/update_treatment_course') ,upload.single("icon_image") ,userController.update_treatment_course  )
                                                                
                                           /* Report section */
      // Api for export_client_jobs_filteredpatient

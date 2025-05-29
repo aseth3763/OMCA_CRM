@@ -2889,77 +2889,88 @@ const add_notes = async(req,res)=>{
                 // Api for add treatment course
 
                 const add_treatment_course = async (req, res) => {
-                  try {
-                    const { course_name, course_price , categories } = req.body;
-                
-                    // Validate course_name
-                    if (!course_name) {
-                      return res.status(400).json({
-                        success: false,
-                        message: 'Course Name is required',
-                      });
-                    }
-                    if (!course_price) {
-                      return res.status(400).json({
-                        success: false,
-                        message: 'course price is required',
-                      });
-                    }
-                
-                    // Validate categories array
-                    if (!Array.isArray(categories) || categories.length === 0) {
-                      return res.status(400).json({
-                        success: false,
-                        message: 'At least one category is required',
-                      });
-                    }
-                
-                    // Check for already existing treatment course using $regex
-                    const exist_course = await treatement_course_model.findOne({
-                      course_name: { $regex: `^${course_name}$`, $options: 'i' }, 
-                    });
-                    if (exist_course) {
-                      return res.status(400).json({
-                        success: false,
-                        message: 'Course already exists with the same name',
-                      });
-                    }
-                
-                    // Validate for duplicate category names in the array
-                    const uniqueCategories = new Set(categories);
-                    if (uniqueCategories.size !== categories.length) {
-                      return res.status(400).json({
-                        success: false,
-                        message: 'Duplicate category names are not allowed',
-                      });
-                    }
-                
-                    // Format categories
-                    const formattedCategories = categories.map((category_name) => ({
-                      category_name,
-                    }));
-                
-                    // Logic to save the treatment course in the database
-                    const new_course = new treatement_course_model({
-                      course_name,
-                      course_price,
-                      categories: formattedCategories,
-                    });
-                    await new_course.save();
-                
-                    return res.status(200).json({
-                      success: true,
-                      message: 'Treatment course added successfully',
-                     
-                    });
-                  } catch (error) {
-                    return res.status(500).json({
-                      success: false,
-                      message: 'Server error',
-                      error_message: error.message,
-                    });
-                  }
-                };
+  try {
+    const { course_name, course_price, categories } = req.body;
+    const image = req.file;
+
+    // Check for uploaded image
+    if (!image) {
+      return res.status(400).json({
+        success: false,
+        message: 'Image is required',
+      });
+    }
+
+    // Validate other inputs
+    if (!course_name) {
+      return res.status(400).json({
+        success: false,
+        message: 'Course Name is required',
+      });
+    }
+
+    if (!course_price) {
+      return res.status(400).json({
+        success: false,
+        message: 'Course price is required',
+      });
+    }
+
+    const parsedCategories = typeof categories === 'string' ? JSON.parse(categories) : categories;
+
+    if (!Array.isArray(parsedCategories) || parsedCategories.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'At least one category is required',
+      });
+    }
+
+    const exist_course = await treatement_course_model.findOne({
+      course_name: { $regex: `^${course_name}$`, $options: 'i' },
+    });
+
+    if (exist_course) {
+      return res.status(400).json({
+        success: false,
+        message: 'Course already exists with the same name',
+      });
+    }
+
+    const uniqueCategories = new Set(parsedCategories);
+    if (uniqueCategories.size !== parsedCategories.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Duplicate category names are not allowed',
+      });
+    }
+
+    const formattedCategories = parsedCategories.map((category_name) => ({
+      category_name,
+    }));
+
+    // Save new course with image path
+    const new_course = new treatement_course_model({
+      course_name,
+      course_price,
+      categories: formattedCategories,
+      image: image.filename, // or image.filename if storing just the name
+    });
+
+    await new_course.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Treatment course added successfully',
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Server error',
+      error_message: error.message,
+    });
+  }
+};
+
                 
 
 
@@ -3053,7 +3064,8 @@ const add_notes = async(req,res)=>{
       const update_treatment_course = async (req, res) => {
   try {
     const { treatment_course_id } = req.params;
-    const { course_name, course_price, categories } = req.body;
+    let { course_name, course_price, categories } = req.body;
+    const image = req.file; //  optional image upload
 
     // Validate ID
     if (!treatment_course_id) {
@@ -3063,7 +3075,6 @@ const add_notes = async(req,res)=>{
       });
     }
 
-    // Fetch course
     const treatment_course = await treatement_course_model.findById(treatment_course_id);
     if (!treatment_course) {
       return res.status(404).json({
@@ -3072,12 +3083,27 @@ const add_notes = async(req,res)=>{
       });
     }
 
-    // Update course_name
+    // Parse categories if sent as JSON string
+    if (typeof categories === 'string') {
+      try {
+        categories = JSON.parse(categories);
+      } catch (err) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid categories format. Must be a JSON array.',
+        });
+      }
+    }
+
+    // Update image (optional)
+    if (image) {
+      treatment_course.image = image.filename; // or image.filename
+    }
+
     if (course_name && course_name !== treatment_course.course_name) {
       treatment_course.course_name = course_name;
     }
 
-    // Update course_price
     if (course_price && course_price !== treatment_course.course_price) {
       if (isNaN(course_price) || course_price <= 0) {
         return res.status(400).json({
@@ -3088,10 +3114,10 @@ const add_notes = async(req,res)=>{
       treatment_course.course_price = course_price;
     }
 
-    // Update specific categories by ID
-    if (categories && Array.isArray(categories)) {
-      for (const categoryUpdate of categories) {
-        const { category_id, category_name } = categoryUpdate;
+    //  Update existing categories
+    if (Array.isArray(categories)) {
+      for (const cat of categories) {
+        const { category_id, category_name } = cat;
 
         if (!category_id || !category_name) {
           return res.status(400).json({
@@ -3114,22 +3140,22 @@ const add_notes = async(req,res)=>{
 
     await treatment_course.save();
 
-   return res.status(200).json({
-  success: true,
-  message: 'Treatment course updated successfully.',
-  data: {
-    _id: treatment_course._id,
-    course_name: treatment_course.course_name,
-    course_price: treatment_course.course_price,
-    createdAt: treatment_course.createdAt,
-    updatedAt: treatment_course.updatedAt,
-    categories: treatment_course.categories.map(cat => ({
-      category_name: cat.category_name,
-      category_id: cat._id
-    }))
-  }
-});
-
+    return res.status(200).json({
+      success: true,
+      message: 'Treatment course updated successfully.',
+      data: {
+        _id: treatment_course._id,
+        course_name: treatment_course.course_name,
+        course_price: treatment_course.course_price,
+        image: treatment_course.image || null,
+        createdAt: treatment_course.createdAt,
+        updatedAt: treatment_course.updatedAt,
+        categories: treatment_course.categories.map(cat => ({
+          category_name: cat.category_name,
+          category_id: cat._id
+        }))
+      }
+    });
 
   } catch (error) {
     return res.status(500).json({
@@ -3589,6 +3615,10 @@ const add_notes = async(req,res)=>{
                             all_appointments : t.appointments.map((a)=> ({
                                            appointmentId : a.appointmentId,
                                            appointment_Date : a.appointment_Date,
+                                           driver_contact : a.driver_contact,
+                                           driver_name : a.driver_name,
+                                           pickup_time : a.pickup_time,
+                                           vehicle_no : a.vehicle_no
                             })),
                             hospital_Name: (t.hospital?.[0]?.hospital_Name) || '',
                            
@@ -4113,84 +4143,74 @@ const patientCount_year_wise = async (req, res) => {
       // APi for Dashboard
          
       const Dashboard_count = async (req, res) => {
-        try {
-            // Basic counts
-            const totalStaff = await userModel.countDocuments({ role: { $ne: 'Admin' } });
-            const totalHospital = await hospitalModel.countDocuments();
-            const all_Enquiry = await enquiryModel.countDocuments({ enq_status: { $ne: 'Confirmed' } });
-            const Patients = await patientModel.countDocuments({ patient_status: 'Confirmed' });
-            const totalAppointment = await appointmentModel.countDocuments();
-            const services = await serviceModel.countDocuments();
-    
-            // Earnings calculation
-            const treatments = await treatmentModel.find({});
-            let totalEarning = 0;
-            let myEarning = 0;
-            let sumTotalDue = 0;
-            let hospitalCharge = 0;
-    
-            treatments.forEach((treatment) => {
-                const totalCharge = treatment.totalCharge || 0;
-                const totalDue = treatment.duePayment || 0;
-                hospitalCharge += treatment.hospital?.[0]?.hospital_charge || 0;
-                totalEarning += (totalCharge - totalDue);
-                sumTotalDue += totalDue;
-            });
-    
-            myEarning = totalEarning - hospitalCharge;
-            let duePaymentAll = sumTotalDue;
-    
-            // 1. Total treatment courses
-            const totalTreatmentCourses = await treatement_course_model.countDocuments();
-    
-            // 1. Get all treatment courses
-// Get all treatment courses
-// const allCourses = await treatement_course_model.find({}, 'course_name');
+    try {
+        // Basic counts
+        const totalStaff = await userModel.countDocuments({ role: { $ne: 'Admin' } });
+        const totalHospital = await hospitalModel.countDocuments();
+        const all_Enquiry = await enquiryModel.countDocuments({ enq_status: { $ne: 'Confirmed' } });
+        const Patients = await patientModel.countDocuments({ patient_status: 'Confirmed' });
+        const totalAppointment = await appointmentModel.countDocuments();
+        const services = await serviceModel.countDocuments();
 
-// 1. Get all treatment courses
-const allCourses = await treatement_course_model.find({}, 'course_name');
-const courseAssignments = {};
+        // Earnings calculation
+        const treatments = await treatmentModel.find({});
+        let totalEarning = 0;
+        let myEarning = 0;
+        let sumTotalDue = 0;
+        let hospitalCharge = 0;
 
-// // 2. Loop through each course and count how many patients have it assigned
-// for (let course of allCourses) {
-//     const courseName = course.course_name;
-//     const count = await patientModel.countDocuments({ treatment_course_name: courseName });
-//     courseAssignments[courseName] = count;
-// }
+        treatments.forEach((treatment) => {
+            const totalCharge = treatment.totalCharge || 0;
+            const totalDue = treatment.duePayment || 0;
+            hospitalCharge += treatment.hospital?.[0]?.hospital_charge || 0;
+            totalEarning += (totalCharge - totalDue);
+            sumTotalDue += totalDue;
+        });
 
-// Prepare the key-value pairs for each course
-let courseAssignmentCounts = {};
-for (let course of allCourses) {
-    const courseName = course.course_name;
-    const count = await patientModel.countDocuments({ treatment_course_name: courseName });
-    courseAssignmentCounts[courseName] = count;
-}
+        myEarning = totalEarning - hospitalCharge;
+        let duePaymentAll = sumTotalDue;
 
-    
-            return res.status(200).json({
-                success: true,
-                message: 'Dashboard Count',
-                totalStaff,
-                totalHospital,
-                services,
-                all_Enquiry,
-                Patients,
-                totalAppointment,
-                OMCA_total_Earning: myEarning,
-                duePaymentAll,
-                totalTreatmentCourses,
-                // courseAssignments
-                ...courseAssignmentCounts 
-            });
-    
-        } catch (error) {
-            return res.status(500).json({
-                success: false,
-                message: 'Server error',
-                error_message: error.message
-            });
+        // Total treatment courses
+        const totalTreatmentCourses = await treatement_course_model.countDocuments();
+
+        // Get all treatment courses
+        const allCourses = await treatement_course_model.find({}, 'course_name image');
+        console.log(allCourses)
+        // Create array of course name and patient count
+        let courseAssignmentCounts = [];
+        for (let course of allCourses) {
+          
+            const courseName = course.course_name;
+            const icon_image = course.image
+            const count = await patientModel.countDocuments({ treatment_course_name: courseName });
+
+            courseAssignmentCounts.push({ course_name: courseName, count , image : icon_image });
         }
-    };
+
+        // Send response
+        return res.status(200).json({
+            success: true,
+            message: 'Dashboard Count',
+            totalStaff,
+            totalHospital,
+            services,
+            all_Enquiry,
+            Patients,
+            totalAppointment,
+            OMCA_total_Earning: myEarning,
+            duePaymentAll,
+            totalTreatmentCourses,
+            courseAssignmentCounts // array of course name and count
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error_message: error.message
+        });
+    }
+};
     
       
                                                               /* service Section */

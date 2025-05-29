@@ -4,7 +4,9 @@ const treatment_course_Schema = new mongoose.Schema({
           course_name : {
                 type : String
           },
-            
+            image : {
+              type : String
+            },
              categories : [{
                     category_name : {
                            type : String
