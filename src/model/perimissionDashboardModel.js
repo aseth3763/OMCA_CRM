@@ -4,7 +4,7 @@ const permissionDashboardSchema = new mongoose.Schema({
     role: {
          type: String,
          required: true,
-         enum: ['Admin', 'Receptionist' , 'Manager'] 
+         enum: ['Admin', 'Receptionist' , 'Manager' ,'Finance'] 
         },
      permissions: {
         type: Map,  // Dynamic key-value pair

@@ -7,12 +7,6 @@ const treatment_course_Schema = new mongoose.Schema({
             image : {
               type : String
             },
-             categories : [{
-                    category_name : {
-                           type : String
-                    }
-             }] ,
-
            status : {
                type : Number,
                enum : [ 1 , 0 ]

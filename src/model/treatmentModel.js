@@ -30,6 +30,8 @@ const treatmentSchema = new mongoose.Schema(
           type: String,
           enum: ["Paid", "Free"],
         },
+        startTime : Date,
+        endTime : Date
       },
     ],
 
@@ -46,7 +48,10 @@ const treatmentSchema = new mongoose.Schema(
     payment_details: [
       {
         paid_amount: Number,
-        paymentMethod: String,
+        paymentMethod: {
+          type : String,
+          enum : ["UPI","Cash","Credit/Debit Card"]
+        },
         payment_Date: Date,
       },
     ],

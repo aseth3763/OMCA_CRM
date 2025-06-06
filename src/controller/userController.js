@@ -2890,7 +2890,7 @@ const add_notes = async(req,res)=>{
 
                 const add_treatment_course = async (req, res) => {
   try {
-    const { course_name, course_price, categories } = req.body;
+    const { course_name, course_price } = req.body;
     const image = req.file;
 
     // Check for uploaded image
@@ -2916,15 +2916,6 @@ const add_notes = async(req,res)=>{
       });
     }
 
-    const parsedCategories = typeof categories === 'string' ? JSON.parse(categories) : categories;
-
-    if (!Array.isArray(parsedCategories) || parsedCategories.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'At least one category is required',
-      });
-    }
-
     const exist_course = await treatement_course_model.findOne({
       course_name: { $regex: `^${course_name}$`, $options: 'i' },
     });
@@ -2936,23 +2927,11 @@ const add_notes = async(req,res)=>{
       });
     }
 
-    const uniqueCategories = new Set(parsedCategories);
-    if (uniqueCategories.size !== parsedCategories.length) {
-      return res.status(400).json({
-        success: false,
-        message: 'Duplicate category names are not allowed',
-      });
-    }
-
-    const formattedCategories = parsedCategories.map((category_name) => ({
-      category_name,
-    }));
 
     // Save new course with image path
     const new_course = new treatement_course_model({
       course_name,
       course_price,
-      categories: formattedCategories,
       image: image.filename, // or image.filename if storing just the name
     });
 
@@ -3038,12 +3017,7 @@ const add_notes = async(req,res)=>{
               course_id: treatment_course._id,
               course_name: treatment_course.course_name,
               course_price: treatment_course.course_price,
-              categories: treatment_course.categories.map((c) => ({
-                category_name: c.category_name,
-                category_id: c._id,
-              })),
-
-            };  
+             };  
 
             return res.status(200).json({
               success: true,
@@ -3064,7 +3038,7 @@ const add_notes = async(req,res)=>{
       const update_treatment_course = async (req, res) => {
   try {
     const { treatment_course_id } = req.params;
-    let { course_name, course_price, categories } = req.body;
+    let { course_name, course_price } = req.body;
     const image = req.file; //  optional image upload
 
     // Validate ID
@@ -3081,18 +3055,6 @@ const add_notes = async(req,res)=>{
         success: false,
         message: 'Treatment course not found.',
       });
-    }
-
-    // Parse categories if sent as JSON string
-    if (typeof categories === 'string') {
-      try {
-        categories = JSON.parse(categories);
-      } catch (err) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid categories format. Must be a JSON array.',
-        });
-      }
     }
 
     // Update image (optional)
@@ -3114,30 +3076,6 @@ const add_notes = async(req,res)=>{
       treatment_course.course_price = course_price;
     }
 
-    //  Update existing categories
-    if (Array.isArray(categories)) {
-      for (const cat of categories) {
-        const { category_id, category_name } = cat;
-
-        if (!category_id || !category_name) {
-          return res.status(400).json({
-            success: false,
-            message: 'Each category update must include category_id and category_name.',
-          });
-        }
-
-        const existingCategory = treatment_course.categories.id(category_id);
-        if (existingCategory) {
-          existingCategory.category_name = category_name;
-        } else {
-          return res.status(404).json({
-            success: false,
-            message: `Category with ID ${category_id} not found.`,
-          });
-        }
-      }
-    }
-
     await treatment_course.save();
 
     return res.status(200).json({
@@ -3149,11 +3087,7 @@ const add_notes = async(req,res)=>{
         course_price: treatment_course.course_price,
         image: treatment_course.image || null,
         createdAt: treatment_course.createdAt,
-        updatedAt: treatment_course.updatedAt,
-        categories: treatment_course.categories.map(cat => ({
-          category_name: cat.category_name,
-          category_id: cat._id
-        }))
+        updatedAt: treatment_course.updatedAt
       }
     });
 
@@ -3373,7 +3307,7 @@ const add_notes = async(req,res)=>{
           
           const create_treatment = async (req, res) => {
             try {
-              const {
+              let {
                 patientId,
                 treatment_course_id,
                 amount_paid,
@@ -3381,6 +3315,8 @@ const add_notes = async(req,res)=>{
                 services
               } = req.body;
           
+              amount_paid = parseInt(amount_paid)
+
               if (!patientId || !treatment_course_id) {
                 return res.status(400).json({
                   success: false,
@@ -3430,12 +3366,13 @@ const add_notes = async(req,res)=>{
           
               const totalCharge = treatment_charge; // At this point, only treatment_charge is included. Paid services come from extra API.
           
-              if (amount_paid <= 0) {
-                return res.status(400).json({
-                  success: false,
-                  message: 'Please enter a valid paid amount to choose a payment method',
-                });
-              }
+                  if (amount_paid < 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid amount. Paid more to proceed with a payment method.',
+      });
+    }
+
           
               if (amount_paid > totalCharge) {
                 return res.status(400).json({
@@ -3485,7 +3422,7 @@ const add_notes = async(req,res)=>{
               await patient.save();
           
               await newTreatment.save();
-          // ✅ Send WhatsApp Message
+          //  Send WhatsApp Message
     const waMessage = `Hello ${patient.patient_name}, your treatment "${treatment_course.course_name}" has been successfully created.\nTotal Charge: ₹${treatment_charge}\nAmount Paid: ₹${amount_paid}\nThank you for choosing us!`;
 
     if (patient.emergency_contact_no) {
@@ -4827,7 +4764,7 @@ const patientCount_year_wise = async (req, res) => {
           });
         }
     
-        const { serviceId, price } = services;
+        const { serviceId, price ,startTime,endTime } = services;
     
         if (!serviceId) {
           return res.status(400).json({
@@ -4867,7 +4804,9 @@ const patientCount_year_wise = async (req, res) => {
           serviceId,
           serviceName: serviceData.serviceName,
           price: price ?? serviceData.price,
-          service_type : "Paid"
+          service_type : "Paid",
+          startTime,
+          endTime
         };
     
         // Update patient
@@ -4902,8 +4841,8 @@ const patientCount_year_wise = async (req, res) => {
     const add_new_treatment_payment = async (req, res) => {
       try {
         const { treatment_id } = req.params;
-        const { paid_amount, paymentMethod, payment_Date } = req.body;
-    
+        let { paid_amount, paymentMethod, payment_Date } = req.body;
+        paid_amount = parseInt(paid_amount)
         // Validate required fields
         const requiredFields = ['paid_amount', 'paymentMethod', 'payment_Date'];
         for (let field of requiredFields) {
@@ -5207,10 +5146,6 @@ const get_all_treatment_courses = async (req, res) => {
         course_name: course.course_name,
         course_price: course.course_price,
         most_demanded_country,
-        categories: course.categories.map(c => ({
-          category_name: c.category_name,
-          category_id: c._id
-        })),
       });
     }
 

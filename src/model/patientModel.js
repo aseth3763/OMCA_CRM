@@ -138,7 +138,8 @@ const patientSchema = new mongoose.Schema({
                                    type: String,
                                    enum: ["Paid", "Free"],
                                  },
-                              
+                              startTime : Date,
+                              endTime : Date 
                 }]
 
 
