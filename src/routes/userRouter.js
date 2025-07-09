@@ -26,6 +26,7 @@ const dynamicRoleCheck = require('../middleware/role_auth');
     // Api for change_user_password
     router.post('/change_user_password/:userId', authenticate, roleCheck('/change_user_password'), userController.change_user_password)
     router.post("/add_notes/:enquiryId",userController.add_notes)
+    router.post("/update_notes/:patientId",userController.update_notes)
     
     // Routes
     router.post('/staff_forget_pass_otp',   userController.staff_forget_pass_otp);
@@ -60,6 +61,7 @@ const dynamicRoleCheck = require('../middleware/role_auth');
     router.post('/changeHospitalStatus/:id', userController.changeHospitalStatus)
     // Api for delete_hospital
     router.delete('/delete_hospital/:hospitalId', authenticate, roleCheck('/delete_hospital'), userController.delete_hospital)
+    router.get('/getPatientsByHospitalId/:hospitalId', userController.getPatientsByHospitalId)
 
                                                   /* Enquiry Section */
 
@@ -92,6 +94,10 @@ router.put(
      // Api for update_Enquiry_status
      router.delete('/deleteEnquiry/:enquiryId' ,authenticate , roleCheck('/deleteEnquiry') , userController.deleteEnquiry)
      router.post('/update_Enquiry_status/:enquiryId' , authenticate , roleCheck('/update_Enquiry_status') , userController.update_Enquiry_status)
+     router.get('/export_enquiries' ,authenticate , roleCheck('/export_enquiries') ,   userController.export_enquiries)
+     router.get('/export_patients' ,authenticate , roleCheck('/export_patients') ,   userController.export_patients)
+     router.get('/export_staffs' ,authenticate , roleCheck('/export_staffs') ,   userController.export_staffs)
+     router.get('/export_appointments' ,authenticate , roleCheck('/export_appointments') ,   userController.export_appointments)
      router.get("/getOldEnquiryHistory",authenticate, roleCheck('/getOldEnquiryHistory'),userController.getOldEnquiryHistory);
 
                                                   /* Patient Section */
@@ -113,6 +119,7 @@ router.put(
     router.post('/assign_patient_to_hospital/:patientId' , authenticate , roleCheck('/assign_patient_to_hospital') , userController.assign_patient_to_hospital)
     // APi for update_patient_status
     router.post('/update_patient_status/:patientId' ,  userController.update_patient_status)
+    router.post('/changePatientStatus/:patientId' ,  userController.changePatientStatus)
     // Api for add patient_Kyc_details
     router.post('/patient_Kyc_details/:patientId' , upload.fields([
         
@@ -210,6 +217,7 @@ router.put(
         router.post("/getFilteredReports",authenticate , roleCheck('/getFilteredReports') ,userController.getFilteredReports);
         
         router.post("/addReports/:treatmentId",authenticate , roleCheck('/addReports'),upload.single('treatmentReport')  ,userController.addReports);
+        router.get("/getReports/:patientId",authenticate , roleCheck('/getReports')  ,userController.getReports);
         
       module.exports = router
 

@@ -13,6 +13,9 @@ const enquirySchema = new mongoose.Schema({
           country : {
                type : String
           },
+          town : {
+               type : String
+          },
           email : {
                type : String
           },
@@ -23,32 +26,11 @@ const enquirySchema = new mongoose.Schema({
           emergency_contact_no : {
                type : Number
           },
-          address : {
-               type : String
-          },
-          patient_relation_name : {
-               type : String
-          },
-          patient_relation : {
-               type : String
-          },
-          patient_emergency_contact_no : {
-               type : Number
-          },
-          patient_relation_id : {
-               type : String
-          },
-          patient_id_proof : {
-               type : String
-          },
           disease_name : String  ,
           enq_status : {
                type : String,
                enum : ['Pending' , 'Follow-Up' , 'Hold' , 'Confirmed' , 'Dead'],
                default : 'Pending'
-          },
-          phoneCode : {
-               type : String
           },
           created_by : [{
                Name : {

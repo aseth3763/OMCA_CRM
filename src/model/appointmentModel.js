@@ -34,6 +34,11 @@
                 type: Date,
                 
           },
+          mode : {
+              type : String,
+              enum : ["Online" , "Offline"]
+          },
+
             // 🚕 New Fields for Transport Info
   pickup_time: { type: String },         
   vehicle_no: { type: String },          

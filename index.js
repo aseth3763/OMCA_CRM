@@ -11,7 +11,7 @@ const port = process.env.PORT || 5200;
 
 // Database configuration
 const db = require('./src/config/db')
-
+ 
 // Middleware configuration
 app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));

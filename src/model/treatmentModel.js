@@ -30,13 +30,13 @@ const treatmentSchema = new mongoose.Schema(
           type: String,
           enum: ["Paid", "Free"],
         },
-        startTime : Date,
-        endTime : Date
+        startTime: Date,
+        endTime: Date,
       },
     ],
 
-    treatment_course_fee : {
-        type : Number
+    treatment_course_fee: {
+      type: Number,
     },
 
     totalCharge: Number,
@@ -49,8 +49,9 @@ const treatmentSchema = new mongoose.Schema(
       {
         paid_amount: Number,
         paymentMethod: {
-          type : String,
-          enum : ["UPI","Cash","Credit/Debit Card"]
+          type: String,
+          enum: ["UPI", "Cash", "Credit/Debit Card"],
+          default: null,
         },
         payment_Date: Date,
       },
@@ -71,7 +72,7 @@ const treatmentSchema = new mongoose.Schema(
       },
     ],
 
-  /*   freeServices: [
+    /*   freeServices: [
       {
         serviceId: String,
         serviceName: String,
@@ -86,10 +87,10 @@ const treatmentSchema = new mongoose.Schema(
         appointment_Date: String,
         disease_name: String,
         status: String,
-        pickup_time : String,
-          vehicle_no : String,
-          driver_name : String,
-          driver_contact : String,
+        pickup_time: String,
+        vehicle_no: String,
+        driver_name: String,
+        driver_contact: String,
       },
     ],
 
