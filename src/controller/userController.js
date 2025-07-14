@@ -1,6 +1,7 @@
 const userModel = require("../model/userModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const puppeteer = require("puppeteer");
 const user_Email = require("../utils/userEmail");
 const hospitalModel = require("../model/hospitalModel");
 const patientModel = require("../model/patientModel");
@@ -1738,6 +1739,87 @@ const get_Enq = async (req, res) => {
   }
 };
 
+
+const all_enquiries_pdf = async (req, res) => {
+  try {
+    const enquiries = await enquiryModel.aggregate([
+      { $match: { enq_status: { $nin: ["Confirmed"] } } },
+      { $sort: { createdAt: -1 } }
+    ]);
+
+    if (!enquiries.length) {
+      return res.status(400).json({ success: false, message: "No Enquiries Found" });
+    }
+
+    const html = `
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial; padding: 20px; }
+          h2 { text-align: center; }
+          table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 20px; }
+          th, td { border: 1px solid #ccc; padding: 6px; }
+          th { background-color: #dc3545; color: white; }
+          tr:nth-child(even) { background-color: #f9f9f9; }
+        </style>
+      </head>
+      <body>
+        <h2>All Enquiries</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Enquiry Id</th>
+              <th>Name</th>
+              <th>Age</th>
+              <th>Gender</th>
+              <th>Country</th>
+              <th>Town</th>
+              <th>Contact</th>
+              <th>Status</th>
+              <th>Disease</th>
+              <th>Created By</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${enquiries.map((e, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td>${e.enquiryId || '-'}</td>
+                <td>${e.name || '-'}</td>
+                <td>${e.age || '-'}</td>
+                <td>${e.gender || '-'}</td>
+                <td>${e.country || '-'}</td>
+                <td>${e.town || '-'}</td>
+                <td>${e.emergency_contact_no || '-'}</td>
+                <td>${e.enq_status || '-'}</td>
+                <td>${e.disease_name || '-'}</td>
+                <td>${e.created_by?.[0]?.role || '-'}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "domcontentloaded" });
+    const buffer = await page.pdf({ format: "A4", printBackground: true });
+    await browser.close();
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": "inline; filename=enquiries.pdf",
+      "Content-Length": buffer.length,
+    });
+    res.end(buffer);
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error_message: error.message });
+  }
+};
+
+
 // Api for update Enquiry
 
 const update_enq = async (req, res) => {
@@ -2400,6 +2482,88 @@ const get_patient = async (req, res) => {
     });
   }
 };
+
+
+const all_patients_pdf = async (req, res) => {
+  try {
+    const { disease_name, country } = req.query;
+    const filter = {};
+
+    if (disease_name) filter["patient_disease.disease_name"] = disease_name;
+    if (country) filter.country = country;
+
+    const patients = await patientModel.find(filter).lean();
+
+    if (!patients.length) {
+      return res.status(400).json({ success: false, message: "No Patients Found" });
+    }
+
+    patients.sort((a, b) => parseInt(b.patientId.replace(/\D/g, "")) - parseInt(a.patientId.replace(/\D/g, "")));
+
+    const html = `
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial; padding: 20px; }
+          h2 { text-align: center; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+          th, td { border: 1px solid #ccc; padding: 6px; }
+          th { background-color: #28a745; color: white; }
+          tr:nth-child(even) { background-color: #f9f9f9; }
+        </style>
+      </head>
+      <body>
+        <h2>All Patients</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Patient ID</th>
+              <th>Name</th>
+              <th>Age</th>
+              <th>Gender</th>
+              <th>Country</th>
+              <th>Disease</th>
+              <th>Type</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${patients.map((p, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td>${p.patientId || '-'}</td>
+                <td>${p.patient_name || '-'}</td>
+                <td>${p.age || '-'}</td>
+                <td>${p.gender || '-'}</td>
+                <td>${p.country || '-'}</td>
+                <td>${p.patient_disease[0].disease_name || '-'}</td>
+                <td>${p.patient_type || '-'}</td>
+                <td>${p.patient_status || '-'}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "domcontentloaded" });
+    const buffer = await page.pdf({ format: "A4", printBackground: true });
+    await browser.close();
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": "inline; filename=patients.pdf",
+      "Content-Length": buffer.length,
+    });
+    res.end(buffer);
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server error", error_message: error.message });
+  }
+};
+
 
 // Api for delete particular patient record
 const deletePatient = async (req, res) => {
@@ -3242,6 +3406,76 @@ const get_patient_appointment = async (req, res) => {
       message: "Server error",
       error_message: error.message,
     });
+  }
+};
+
+const all_appointments_pdf = async (req, res) => {
+  try {
+    const appointments = await appointmentModel.find({}).sort({ createdAt: -1 }).lean();
+
+    if (!appointments || appointments.length === 0) {
+      return res.status(400).json({ success: false, message: "No Appointment Found" });
+    }
+
+    const html = `
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial; padding: 20px; }
+          h2 { text-align: center; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ccc; padding: 8px; font-size: 12px; text-align: left; }
+          th { background-color: #007bff; color: white; }
+          tr:nth-child(even) { background-color: #f2f2f2; }
+        </style>
+      </head>
+      <body>
+        <h2>All Appointments</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Patient ID</th>
+              <th>Appointment ID</th>
+              <th>Patient Name</th>
+              <th>Disease</th>
+              <th>Status</th>
+              <th>Hospital</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${appointments.map((a, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td>${a.patientId || '-'}</td>
+                <td>${a.appointmentId || '-'}</td>
+                <td>${a.patientName || '-'}</td>
+                <td>${a.treatment_name || '-'}</td>
+                <td>${a.status || '-'}</td>
+                <td>${a.hospitalName || '-'}</td>
+                <td>${a.appointment_Date || '-'}</td>
+              </tr>`).join("")}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "domcontentloaded" });
+    const buffer = await page.pdf({ format: "A4", printBackground: true });
+    await browser.close();
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": "inline; filename=appointments.pdf",
+      "Content-Length": buffer.length,
+    });
+    res.end(buffer);
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Server Error", error_message: error.message });
   }
 };
 
@@ -4751,6 +4985,93 @@ const all_services = async (req, res) => {
   }
 };
 
+
+const all_services_pdf = async (req, res) => {
+  try {
+    const services = await serviceModel.find({}).sort({ createdAt: -1 }).lean();
+
+    if (!services || services.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "No Services added yet",
+      });
+    }
+
+    // HTML content with inline CSS
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="UTF-8">
+        <title>All Services</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          h1 { text-align: center; color: #333; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+          th, td { border: 1px solid #ccc; padding: 8px; text-align: left; font-size: 14px; }
+          th { background-color: #4CAF50; color: white; }
+          tr:nth-child(even) { background-color: #f2f2f2; }
+        </style>
+      </head>
+      <body>
+        <h1>All Services</h1>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Service ID</th>
+              <th>Name</th>
+              <th>Description</th>
+              <th>Price</th>
+              <th>Duration</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${services.map((s, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${s.serviceId || '-'}</td>
+                <td>${s.serviceName || '-'}</td>
+                <td>${s.description || '-'}</td>
+                <td>${s.price || 0}</td>
+                <td>${s.duration || '-'}</td>
+                <td>${s.isActive ? "Active" : "Inactive"}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    // Generate PDF
+    const browser = await puppeteer.launch();
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "domcontentloaded" });
+    const pdfBuffer = await page.pdf({ format: "A4", printBackground: true });
+    await browser.close();
+
+    // Send PDF
+    res.set({
+  "Content-Type": "application/pdf",
+  "Content-Disposition": "inline; filename=all_services.pdf",
+  "Content-Length": pdfBuffer.length,
+});
+
+res.end(pdfBuffer); // <-- use end() instead of send()
+
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error",
+      error_message: error.message,
+    });
+  }
+};
+
+
 // Api for active inactive service
 
 const active_inactive_Service = async (req, res) => {
@@ -5471,6 +5792,100 @@ const totalEarnings = async (req, res) => {
   }
 };
 
+const totalEarnings_pdf = async (req, res) => {
+  try {
+    const treatments = await treatmentModel.find({}).sort({ createdAt: -1 });
+
+    if (!treatments || treatments.length === 0) {
+      return res.status(400).json({ success: false, message: "No transaction found" });
+    }
+
+    const earnings = await Promise.all(
+      treatments.map(async (treatment) => {
+        const patient = await patientModel.findOne({ patientId: treatment.patientId });
+
+        return {
+          patientId: treatment.patientId,
+          patient_name: treatment.patient_name || "-",
+          Disease_agreement: treatment.treatment_course_name || "-",
+          total_Amount: treatment.totalCharge || 0,
+          amount_paid: (treatment.totalCharge || 0) - (treatment.duePayment || 0),
+          remaining_balance: treatment.duePayment || 0,
+        };
+      })
+    );
+
+    // HTML string
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          h2 { text-align: center; color: #333; }
+          table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+          th, td { border: 1px solid #ccc; padding: 6px; }
+          th { background-color: #6c63ff; color: white; }
+          tr:nth-child(even) { background-color: #f9f9f9; }
+        </style>
+      </head>
+      <body>
+        <h2>Total Earnings Report</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Patient ID</th>
+              <th>Patient Name</th>
+              <th>Disease</th>
+              <th>Total Amount</th>
+              <th>Amount Paid</th>
+              <th>Remaining</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${earnings.map((e, i) => `
+              <tr>
+                <td>${i + 1}</td>
+                <td>${e.patientId}</td>
+                <td>${e.patient_name}</td>
+                <td>${e.Disease_agreement}</td>
+                <td>₹${e.total_Amount.toLocaleString()}</td>
+                <td>₹${e.amount_paid.toLocaleString()}</td>
+                <td>₹${e.remaining_balance.toLocaleString()}</td>
+              </tr>
+            `).join("")}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    // Puppeteer PDF generation
+    const browser = await puppeteer.launch({ headless: "new", args: ["--no-sandbox"] });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: "domcontentloaded" });
+    const buffer = await page.pdf({ format: "A4", printBackground: true });
+    await browser.close();
+
+    // Set response headers
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": "inline; filename=total_earnings.pdf",
+      "Content-Length": buffer.length,
+    });
+
+    res.end(buffer);
+  } catch (error) {
+    console.error("Error generating PDF:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+      error_message: error.message,
+    });
+  }
+};
+
 /* Chat Section */
 
 // Api for add user chat
@@ -5815,6 +6230,7 @@ module.exports = {
 
   add_new_enq,
   all_Enq,
+  all_enquiries_pdf,
   get_Enq,
   update_enq,
   update_Enquiry_status,
@@ -5831,6 +6247,7 @@ module.exports = {
 
   /* Patient Section */
   all_patients,
+  all_patients_pdf,
   deletePatient,
   get_notes_by_patient,
   generate_sampleFile,
@@ -5849,6 +6266,7 @@ module.exports = {
 
   /* service Section */
   add_service,
+  all_services_pdf,
   all_services,
   active_inactive_Service,
   get_activeServices,
@@ -5869,6 +6287,7 @@ module.exports = {
   /* Appointment Section */
   create_appointment,
   all_appointment,
+  all_appointments_pdf,
   get_patient_appointment,
   update_appointment_status,
   export_appointments,
@@ -5883,7 +6302,7 @@ module.exports = {
 
   /* All earnings */
   totalEarnings,
-
+  totalEarnings_pdf,
   /* Chat Group */
   userChat,
   get_chats,

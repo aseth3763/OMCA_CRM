@@ -36,7 +36,7 @@
           },
           mode : {
               type : String,
-              enum : ["Online" , "Offline"]
+              enum : ["online" , "offline"]
           },
 
             // 🚕 New Fields for Transport Info
