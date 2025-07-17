@@ -78,7 +78,7 @@ router.post(
 );
     // Api for all_Enq
     router.get('/all_Enq', authenticate , roleCheck('/all_Enq') , userController.all_Enq)
-    router.get('/all_enquiries_pdf', userController.all_enquiries_pdf)
+    // router.get('/all_enquiries_pdf', userController.all_enquiries_pdf)
     // Api for get_Enq
     router.get('/get_Enq/:enquiryId' , authenticate , roleCheck('/get_Enq') , userController.get_Enq)
     // Api for update Enquiry
@@ -105,7 +105,7 @@ router.put(
    
     // Api for all_patients
     router.get('/all_patients' , authenticate, roleCheck('/all_patients'), userController.all_patients)
-    router.get('/all_patients_pdf' , userController.all_patients_pdf)
+    // router.get('/all_patients_pdf' , userController.all_patients_pdf)
     // Api for deletePatient
     router.delete('/deletePatient/:patientId', authenticate, roleCheck('/deletePatient'), userController.deletePatient)
     router.get('/get_notes_by_patient/:patientId',authenticate, roleCheck('/get_notes_by_patient'), userController.get_notes_by_patient)
@@ -137,7 +137,7 @@ router.put(
     router.post('/add_service' , authenticate, roleCheck('/add_service') , userController.add_service) 
     // Api for all_services
     router.get('/all_services', authenticate , roleCheck('/all_services') , userController.all_services)
-    router.get("/all_services_pdf", userController.all_services_pdf);
+    // router.get("/all_services_pdf", userController.all_services_pdf);
     // Api for active_inactive_Service
     router.post('/active_inactive_Service/:serviceId' ,  userController.active_inactive_Service) 
     
@@ -164,7 +164,7 @@ router.put(
     router.post('/create_appointment/:userId', authenticate, roleCheck('/create_appointment'),  userController.create_appointment)
     // Api for all_appointment
     router.get('/all_appointment', authenticate, roleCheck('/all_appointment'), userController.all_appointment)
-    router.get('/all_appointments_pdf', userController.all_appointments_pdf)
+    // router.get('/all_appointments_pdf', userController.all_appointments_pdf)
     
     // Api for get_patient_appointment
     router.get('/get_patient_appointment/:patientId', authenticate, roleCheck('/get_patient_appointment'), userController.get_patient_appointment)
@@ -210,7 +210,7 @@ router.put(
                                                                  /* totalEarnings Count */
       // Api for totalEarnings
       router.get('/totalEarnings', authenticate , roleCheck('/totalEarnings') , userController.totalEarnings)
-      router.get('/totalEarnings_pdf', userController.totalEarnings_pdf)
+      // router.get('/totalEarnings_pdf', userController.totalEarnings_pdf)
                         
                                                                /* user chat group */
 
