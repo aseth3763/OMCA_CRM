@@ -32,6 +32,24 @@ const enquirySchema = new mongoose.Schema({
                enum : ['Pending' , 'Follow-Up' , 'Hold' , 'Confirmed' , 'Dead'],
                default : 'Pending'
           },
+          address : {
+               type : String
+          },
+          patient_relation_name : {
+               type : String
+          },
+          patient_relation : {
+               type : String
+          },
+          patient_emergency_contact_no : {
+               type : Number
+          },
+          patient_relation_id : {
+               type : String
+          },
+          patient_id_proof : {
+               type : String
+          },
           created_by : [{
                Name : {
                        type : String
@@ -42,7 +60,12 @@ const enquirySchema = new mongoose.Schema({
                userId : {
                    type : mongoose.Schema.Types.ObjectId
                }
-}],
+}], phoneCode : {
+               type : String
+          },
+           Referral_Name: {
+                    type :String
+               },
 
 discussionNotes: {
      type : [

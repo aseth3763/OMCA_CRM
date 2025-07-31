@@ -1431,6 +1431,7 @@ const add_new_enq = async (req, res) => {
       disease_name,
       patient_relation_name,
       patient_relation,
+      Referral_Name
     } = req.body;
 
     let userId = req.params.userId;
@@ -1549,6 +1550,7 @@ const add_new_enq = async (req, res) => {
       patient_emergency_contact_no,
       patient_relation_id,
       patient_id_proof,
+      Referral_Name
     });
 
     await newEnq.save();
@@ -1637,6 +1639,7 @@ const all_Enq = async (req, res) => {
           patient_relation: 1,
           patient_relation_id: 1,
           patient_id_proof: 1,
+          Referral_Name : 1
         },
       },
     ]);
@@ -1669,6 +1672,7 @@ const all_Enq = async (req, res) => {
         patient_relation_id: p.patient_relation_id,
         patient_id_proof: p.patient_id_proof,
         Enquiry_status: p.enq_status,
+        Referral_Name : p.Referral_Name,
         createdBy: p.created_by[0]?.role || "N/A",
         disease_name: p.disease_name,
       })),
@@ -1839,6 +1843,7 @@ const update_enq = async (req, res) => {
       patient_relation_name,
       patient_relation,
       discussionNotes,
+      Referral_Name
     } = req.body;
 
     if (!enquiryId) {
@@ -1871,6 +1876,7 @@ const update_enq = async (req, res) => {
     if (patient_relation_name)
       enq.patient_relation_name = patient_relation_name;
     if (patient_relation) enq.patient_relation = patient_relation;
+    if (Referral_Name) enq.Referral_Name = Referral_Name;
 
     // Handle uploaded files
     const imageFields = [".jpeg", ".jpg", ".png"];

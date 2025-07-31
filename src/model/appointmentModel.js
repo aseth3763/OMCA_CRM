@@ -39,7 +39,7 @@
               enum : ["online" , "offline"]
           },
 
-            // 🚕 New Fields for Transport Info
+            //  New Fields for Transport Info
   pickup_time: { type: String },         
   vehicle_no: { type: String },          
   driver_name : {type : String},
