@@ -2,6 +2,7 @@ const userModel = require("../model/userModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 // const puppeteer = require("puppeteer");
+import logger from '../utils/logger.js';
 const user_Email = require("../utils/userEmail");
 const hospitalModel = require("../model/hospitalModel");
 const patientModel = require("../model/patientModel");
@@ -1418,6 +1419,7 @@ function generateRandomNumber(length) {
 
 const add_new_enq = async (req, res) => {
   try {
+        logger.debug('add_new_enq called', { requestId: req.id, body: req.body });
     let {
       name,
       age,
@@ -1435,6 +1437,10 @@ const add_new_enq = async (req, res) => {
     } = req.body;
 
     let userId = req.params.userId;
+
+    console.log(req.body);
+    console.log(userId);
+    
 
     // Validate userId
     if (!userId) {
@@ -1576,7 +1582,10 @@ const add_new_enq = async (req, res) => {
       success: true,
       message: "Enquiry submitted successfully!",
     });
+    logger.info('New enquiry saved', { requestId: req.id, userId: req.user?._id });
+    res.json({ ok: true });
   } catch (error) {
+      logger.error(error); // This logs to both file and console (in dev)
     return res.status(500).json({
       success: false,
       message: "Server Error",
@@ -1719,6 +1728,7 @@ const get_Enq = async (req, res) => {
         gender: enq.gender,
         emergency_contact_no: enq.emergency_contact_no,
         address: enq.address,
+        Referral_Name : enq.Referral_Name,
         patient_emergency_contact_no: enq.patient_emergency_contact_no,
         patient_relation_name: enq.patient_relation_name,
         patient_relation: enq.patient_relation,
@@ -4347,7 +4357,7 @@ const get_unadded_services_for_treatment = async (req, res) => {
     // console.log(treatment);
 
     // Fetch only active services
-    const allActiveServices = await serviceModel.find({ isActive: 1 });
+    const allActiveServices = await serviceModel.find({ isActive: 1 , isDeleted : false});
 
     // Get serviceIds already added in treatment
     const addedServiceIds = treatment.services.map((s) => s.serviceId);
@@ -4970,12 +4980,15 @@ const add_service = async (req, res) => {
 // Api for get all services
 const all_services = async (req, res) => {
   try {
-    const services = await serviceModel.find({}).sort({ createdAt: -1 }).lean();
+    const services = await serviceModel
+      .find({ isDeleted: false }) //  only active (not deleted) services
+      .sort({ createdAt: -1 })
+      .lean();
 
-    if (!services) {
-      return res.status(400).json({
+    if (!services || services.length === 0) {
+      return res.status(404).json({
         success: false,
-        message: "No Services added yet",
+        message: "No services available",
       });
     }
 
@@ -4991,6 +5004,7 @@ const all_services = async (req, res) => {
         isActive: s.isActive,
       })),
     });
+
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -5142,7 +5156,7 @@ const active_inactive_Service = async (req, res) => {
 const get_activeServices = async (req, res) => {
   try {
     const services = await serviceModel
-      .find({ isActive: 1 })
+      .find({ isDeleted: false, isActive: 1 })
       .sort({ createdAt: -1 })
       .lean();
 
@@ -5163,6 +5177,7 @@ const get_activeServices = async (req, res) => {
         price: s.price,
         duration: s.duration,
         isActive: s.isActive,
+        isDeleted : s.isDeleted
       })),
     });
   } catch (error) {
@@ -5254,7 +5269,8 @@ const patient_Kyc_details = async (req, res) => {
 
     // add kyc details
     const newKycDetails = {};
-
+    console.log(req.files);
+    
     if (req.files.id_proof) {
       newKycDetails.id_proof = req.files.id_proof[0].filename;
     }
@@ -5263,6 +5279,15 @@ const patient_Kyc_details = async (req, res) => {
     }
     if (req.files.photo) {
       newKycDetails.photo = req.files.photo[0].filename;
+    }
+    if (req.files.Attende_id_proof) {
+      newKycDetails.Attende_id_proof = req.files.Attende_id_proof[0].filename;
+    }
+    if (req.files.Attende_passport) {
+      newKycDetails.Attende_passport = req.files.Attende_passport[0].filename;
+    }
+    if (req.files.Attende_photo) {
+      newKycDetails.Attende_photo = req.files.Attende_photo[0].filename;
     }
 
     patient.Kyc_details.push(newKycDetails);
@@ -5349,37 +5374,92 @@ const paid_service = async (req, res) => {
   }
 };
 
+const get_deleted_services = async (req, res) => {
+  try {
+    const deletedServices = await serviceModel
+      .find({ isDeleted: true })
+      .sort({ deletedAt: -1 }) // optional: show recent deletions first
+      .lean();
+
+    if (deletedServices.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No deleted services found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Deleted services fetched successfully",
+      services: deletedServices,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching deleted services",
+      error_message: error.message,
+    });
+  }
+};
+
 // Api for delete service
 const delete_service = async (req, res) => {
   try {
-    const serviceId = req.params.serviceId;
-    // Check for serviceId
+    const { serviceId } = req.params;
+    console.log(req.user);
+    
+    const adminId = req.user?.id; // ensure populated by auth middleware
+
+    // 1. Validate input
     if (!serviceId) {
       return res.status(400).json({
         success: false,
-        message: "Service ID required",
+        message: "Service ID is required",
       });
     }
-    // Check for service existence
 
-    const deleteService = await serviceModel.findOne({ serviceId: serviceId });
-    if (!deleteService) {
-      return res.status(400).json({
+    if (!adminId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: Admin ID not found",
+      });
+    }
+
+    // 2. Check service existence and if already deleted
+    const existingService = await serviceModel.findOne({serviceId });
+
+    if (!existingService) {
+      return res.status(404).json({
         success: false,
         message: "Service not found",
       });
     }
-    // Delete the service
-    await serviceModel.deleteOne({ serviceId: serviceId });
-    return res.status(200).json({
+
+    if (existingService.isDeleted) {
+      return res.status(400).json({
+        success: false,
+        message: "Service is already deleted",
+      });
+    }
+
+    // 3. Perform soft delete
+    existingService.isDeleted = true;
+    existingService.deletedBy = adminId;
+    existingService.deletedAt = new Date();
+
+    await existingService.save();
+
+    res.status(200).json({
       success: true,
       message: "Service deleted successfully",
     });
-  } catch (error) {
-    return res.status(500).json({
+
+  } catch (err) {
+    res.status(500).json({
       success: false,
-      message: "Server error",
-      error_message: error.message,
+      message: "Server error while deleting service",
+      error_message: err.message,
     });
   }
 };
@@ -6208,6 +6288,50 @@ const getReports = async (req, res) => {
   }
 };
 
+const getAllPaymentsByPatientId = async (req, res) => {
+  try {
+    const { patientId } = req.params;
+
+    // 1. Get the patient details
+    const patient = await patientModel.findOne({patientId });
+    if (!patient) {
+      return res.status(404).json({ success: false, message: "Patient not found" });
+    }
+
+    // 2. Get all treatments for that patient
+    const treatments = await treatmentModel.find({ patientId });
+
+    // 3. Combine all payment_details from all treatments
+    const payments = [];
+    let totalPaid = 0;
+
+    treatments.forEach((treatment) => {
+      (treatment.payment_details || []).forEach((payment) => {
+        payments.push(payment);
+        totalPaid += payment.paid_amount || 0;
+      });
+    });
+
+    // 4. Return formatted response
+    return res.status(200).json({
+      success: true,
+      message: "Payment details for patient",
+      data: {
+        patient, // ✅ full patient object
+        payments, // ✅ array of payment objects
+        totalPaid, // ✅ total of all paid_amounts
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching payments:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching payments",
+      error: error.message,
+    });
+  }
+};
+
 module.exports = {
   add_staff_user,
   login,
@@ -6329,4 +6453,7 @@ module.exports = {
 
   addReports,
   getReports,
+  get_deleted_services,
+
+  getAllPaymentsByPatientId
 };

@@ -127,7 +127,11 @@ router.put(
         
         { name: 'id_proof', maxCount: 1 },
         { name: 'photo', maxCount: 1 },
-        { name: 'passport', maxCount: 1 }]            
+        { name: 'passport', maxCount: 1 },
+        { name: 'Attende_id_proof', maxCount: 1 },
+        { name: 'Attende_passport', maxCount: 1 },
+        { name: 'Attende_photo', maxCount: 1 }
+      ]            
     ) , authenticate , roleCheck('/patient_Kyc_details') , userController.patient_Kyc_details)  
     // Api  for patient_extra_service
     router.post('/patient_extra_service/:treatment_id' , authenticate , roleCheck('/patient_extra_service') , userController.patient_extra_service)  
@@ -140,6 +144,7 @@ router.put(
     // router.get("/all_services_pdf", userController.all_services_pdf);
     // Api for active_inactive_Service
     router.post('/active_inactive_Service/:serviceId' ,  userController.active_inactive_Service) 
+    router.get('/get_deleted_services' , userController.get_deleted_services) 
     
     // Api for update service
     router.post('/update_service/:serviceId' , authenticate , roleCheck('/update_service') , userController.update_service) 
@@ -202,7 +207,7 @@ router.put(
        // Api for add_new_treatment_payment
        router.post('/add_new_treatment_payment/:treatment_id' , authenticate , roleCheck('/add_new_treatment_payment') , userController.add_new_treatment_payment)
        router.post('/update_treatment_status/:treatment_id', authenticate , roleCheck('/update_treatment_status') ,userController.update_treatment_status);
-
+      
                                                                   /* Dashboard Count */
 
       router.get('/Dashboard_count', authenticate , roleCheck('/Dashboard_count') , userController.Dashboard_count)
@@ -224,6 +229,7 @@ router.put(
         
         router.post("/addReports/:treatmentId",authenticate , roleCheck('/addReports'),upload.single('treatmentReport')  ,userController.addReports);
         router.get("/getReports/:patientId",authenticate , roleCheck('/getReports')  ,userController.getReports);
+        router.get("/getAllPaymentsByPatientId/:patientId" ,userController.getAllPaymentsByPatientId);
         
       module.exports = router
 

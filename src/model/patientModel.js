@@ -142,6 +142,15 @@ const patientSchema = new mongoose.Schema(
         photo: {
           type: String,
         },
+        Attende_id_proof: {
+          type: String,
+        },
+        Attende_passport: {
+          type: String,
+        },
+        Attende_photo: {
+          type: String,
+        },
       },
     ],
     services: [
@@ -157,6 +166,17 @@ const patientSchema = new mongoose.Schema(
         endTime: Date,
       },
     ],
+    isDeleted: {
+    type: Boolean,
+    default: false,
+  },
+  deletedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "staff",
+  },
+  deletedAt: {
+    type: Date,
+  },
     createdAt: {
   type: Date,
   default: Date.now
