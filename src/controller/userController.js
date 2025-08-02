@@ -2,7 +2,6 @@ const userModel = require("../model/userModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 // const puppeteer = require("puppeteer");
-import logger from '../utils/logger.js';
 const user_Email = require("../utils/userEmail");
 const hospitalModel = require("../model/hospitalModel");
 const patientModel = require("../model/patientModel");
@@ -1418,8 +1417,7 @@ function generateRandomNumber(length) {
 // Api for add New Enquiry
 
 const add_new_enq = async (req, res) => {
-  try {
-        logger.debug('add_new_enq called', { requestId: req.id, body: req.body });
+  try {        
     let {
       name,
       age,
@@ -1582,10 +1580,7 @@ const add_new_enq = async (req, res) => {
       success: true,
       message: "Enquiry submitted successfully!",
     });
-    logger.info('New enquiry saved', { requestId: req.id, userId: req.user?._id });
-    res.json({ ok: true });
   } catch (error) {
-      logger.error(error); // This logs to both file and console (in dev)
     return res.status(500).json({
       success: false,
       message: "Server Error",
@@ -1696,6 +1691,7 @@ const all_Enq = async (req, res) => {
 };
 
 // Api for get particular enquiry
+
 const get_Enq = async (req, res) => {
   try {
     const enquiryId = req.params.enquiryId;
@@ -1948,6 +1944,7 @@ const update_enq = async (req, res) => {
 };
 
 // Api for update Enquiry status
+
 const update_Enquiry_status = async (req, res) => {
   try {
     const { enquiryId } = req.params;
