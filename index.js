@@ -21,7 +21,7 @@ app.use(express.static('uploads'))
 app.use('/omca_crm/api/omca_crm/exports', express.static(path.join(__dirname, 'exports')));
 
  app.use((err, req, res, next) => {
-  logger.error('Unhandled error:', err); // ✅ log all unhandled errors
+  logger.error('Unhandled error:', err); //  log all unhandled errors
   res.status(500).json({ message: 'Internal server error' });
 });
 

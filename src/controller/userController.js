@@ -29,43 +29,47 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp");
 
 const add_staff_user = async (req, res) => {
   try {
-    const { name, email, phone_no, gender, role, password } = req.body;
-    const requiredFields = [
-      "name",
-      "email",
-      "phone_no",
-      "gender",
-      "role",
-      "password",
-    ];
+    let { name, email, phone_no, gender, role, password, roleStatuses } = req.body;
+    console.log("Raw roleStatuses:", roleStatuses);
 
-    // Check for required fields
+    // Convert roleStatuses from string to array if needed
+    if (typeof roleStatuses === "string") {
+      try {
+        roleStatuses = JSON.parse(roleStatuses); // handle JSON string from Postman
+      } catch (err) {
+        // If not valid JSON, treat as comma-separated values
+        roleStatuses = roleStatuses.split(",").map(s => s.trim());
+      }
+    }
+
+    // Ensure it's an array
+    if (!Array.isArray(roleStatuses)) {
+      roleStatuses = [];
+    }
+
+    const requiredFields = ["name", "email", "phone_no", "gender", "role", "password"];
     for (let field of requiredFields) {
       if (!req.body[field]) {
         return res.status(400).json({
           success: false,
-          message: `Required ${field.replace("_", " ")}`,
+          message: `Required ${field.replace("_", " ")}`
         });
       }
     }
 
-    // Check if user already exists
     const exist_user = await userModel.findOne({ email });
     if (exist_user) {
       return res.status(400).json({
         success: false,
-        message: `User already exists with the email: ${email}`,
+        message: `User already exists with the email: ${email}`
       });
     }
 
-    // Handle profile image if provided
     let profileImage = "";
     if (req.file) profileImage = req.file.filename;
 
-    // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create new user
     const newUser = new userModel({
       name,
       email,
@@ -74,7 +78,8 @@ const add_staff_user = async (req, res) => {
       role,
       password: hashedPassword,
       profileImage,
-      userLogs: [],
+      roleStatuses, // now it's always an array
+      userLogs: []
     });
 
     await newUser.save();
@@ -82,13 +87,13 @@ const add_staff_user = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: `${role} added successfully`,
-      details: newUser,
+      details: newUser
     });
   } catch (error) {
     return res.status(500).json({
       success: false,
       message: "Server error",
-      error_message: error.message,
+      error_message: error.message
     });
   }
 };
@@ -99,48 +104,41 @@ const login = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Required Email" });
+      return res.status(400).json({ success: false, message: "Required Email" });
     }
     if (!password) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Password required" });
+      return res.status(400).json({ success: false, message: "Password required" });
     }
 
     const user = await userModel.findOne({ email });
     if (!user) {
-      return res
-        .status(400)
-        .json({ success: false, message: "User Not Found" });
+      return res.status(400).json({ success: false, message: "User Not Found" });
     }
 
     const isPasswordMatch = await bcrypt.compare(password, user.password);
     if (!isPasswordMatch) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Password Incorrect" });
+      return res.status(400).json({ success: false, message: "Password Incorrect" });
     }
 
     // Fetch role permissions
-    const permissionData = await PermissionDashboardModel.findOne({
-      role: user.role,
-    });
+    const permissionData = await PermissionDashboardModel.findOne({ role: user.role });
 
     let allowedEndpoints = [];
     if (permissionData && permissionData.permissions instanceof Map) {
-      // Convert Map to an array and filter endpoints where value is 1
       allowedEndpoints = [...permissionData.permissions.entries()]
         .filter(([key, value]) => value === 1)
         .map(([key]) => key);
     }
 
-    console.log("Allowed Endpoints:", allowedEndpoints);
-
+    // 🔹 Include roleStatuses in JWT
     const now = new Date();
     const token = jwt.sign(
-      { id: user._id, role: user.role },
+      { 
+        id: user._id, 
+        role: user.role, 
+        roleStatuses: user.roleStatuses || [] 
+
+      },
       process.env.JWT_SECRET,
       { expiresIn: "1d" }
     );
@@ -152,6 +150,7 @@ const login = async (req, res) => {
       second: "2-digit",
     });
 
+    // Push login log
     user.userLogs.push({ date: now, loginTime });
 
     if (user.userLogs.length >= 2) {
@@ -168,8 +167,7 @@ const login = async (req, res) => {
     }
 
     await user.save();
-    if (user.role === "Admin") {
-    }
+
     return res.status(200).json({
       success: true,
       message: `${user.role} login Successfully`,
@@ -181,6 +179,7 @@ const login = async (req, res) => {
         profileImage: user.profileImage,
         gender: user.gender,
         role: user.role,
+        roleStatuses: user.roleStatuses || [], // 🔹 Send to frontend
         status: user.status,
         userLogs: user.userLogs,
       },
@@ -188,6 +187,7 @@ const login = async (req, res) => {
       loginTime,
       permissions: allowedEndpoints,
     });
+
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -2343,7 +2343,7 @@ const all_patients = async (req, res) => {
   try {
     const { disease_name, country } = req.query;
     const filter = {};
-
+    
     // Filter by disease_name if provided
     if (disease_name) {
       filter["patient_disease.disease_name"] = disease_name;
@@ -2354,8 +2354,13 @@ const all_patients = async (req, res) => {
       filter.country = country;
     }
 
-    // Fetch patients without sorting at DB level
-    const get_patient = await patientModel.find({ ...filter }).lean();
+    // Role-based status filter
+    if (req.user?.roleStatuses && req.user.roleStatuses.length > 0) {
+      filter.p_status = { $in: req.user.roleStatuses };
+    }
+
+    // Fetch patients
+    const get_patient = await patientModel.find(filter).lean();
 
     if (!get_patient || get_patient.length === 0) {
       return res.status(400).json({
@@ -2364,7 +2369,7 @@ const all_patients = async (req, res) => {
       });
     }
 
-    // Sort patients by numeric part of patientId in descending order
+    // Sort by numeric part of patientId (descending)
     get_patient.sort((a, b) => {
       const numA = parseInt(a.patientId.replace(/[^\d]/g, ""));
       const numB = parseInt(b.patientId.replace(/[^\d]/g, ""));
@@ -2402,6 +2407,8 @@ const all_patients = async (req, res) => {
     });
   }
 };
+
+
 
 // Api for get particular patient Details
 const get_patient = async (req, res) => {
@@ -5846,8 +5853,8 @@ const add_new_treatment_payment = async (req, res) => {
 
 const totalEarnings = async (req, res) => {
   try {
-    // Fetch all treatments, sorted by creation date (latest first)
-    const treatments = await treatmentModel.find({}).sort({ createdAt: -1 });
+    // Fetch all treatments, sorted by updated date (latest first)
+    const treatments = await treatmentModel.find({}).sort({ updatedAt: -1 });
 
     if (!treatments || treatments.length === 0) {
       return res.status(400).json({
