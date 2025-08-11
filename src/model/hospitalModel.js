@@ -27,7 +27,10 @@ const hospitalSchema = new mongoose.Schema({
                type : Number,
                enum : [1 ,0],
                default : 1
-        }
+        },
+        isDeleted: { type: Boolean, default: false },
+            deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user' }, // assuming "staff" collection exists
+            deletedAt: { type: Date }
 
 }, {timestamps : true })
 

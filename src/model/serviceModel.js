@@ -31,7 +31,7 @@ const serviceSchema = new mongoose.Schema(
         }, 
         // Soft delete fields
     isDeleted: { type: Boolean, default: false },
-    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'staff' }, // assuming "staff" collection exists
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user' }, // assuming "staff" collection exists
     deletedAt: { type: Date }
        
     },

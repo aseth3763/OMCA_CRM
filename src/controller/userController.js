@@ -1115,7 +1115,7 @@ const add_hospital = async (req, res) => {
 const getAll_hospital = async (req, res) => {
   try {
     const all_hospital = await hospitalModel
-      .find({})
+      .find({isDeleted:false})
       .sort({ createdAt: -1 })
       .lean();
     console.log(all_hospital);
@@ -1211,7 +1211,7 @@ const getPatientsByHospitalId = async (req, res) => {
 const getActiveHospitals = async (req, res) => {
   try {
     const activeHospitals = await hospitalModel
-      .find({ status: 1 })
+      .find({ status: 1 ,isDeleted :false})
       .sort({ createdAt: -1 })
       .lean();
 
@@ -1356,48 +1356,108 @@ const changeHospitalStatus = async (req, res) => {
   }
 };
 
-// delete Hospital
+// delete Hospital (soft delete)
 
 const delete_hospital = async (req, res) => {
   try {
     const { hospitalId } = req.params;
-    // check for required fields
+    const adminId = req.user?.id; // populated by auth middleware
+    console.log(req.user);
+    
+    // 1. Validate input
     if (!hospitalId) {
       return res.status(400).json({
         success: false,
-        message: "hospital Id required",
+        message: "Hospital ID is required",
       });
     }
 
-    // check for hospital
+    if (!adminId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: Admin ID not found",
+      });
+    }
+
+    // 2. Check if hospital exists
     const hospital = await hospitalModel.findOne({ _id: hospitalId });
+
     if (!hospital) {
-      return res.status(400).json({
+      return res.status(404).json({
         success: false,
-        message: "Hospital Not Found",
+        message: "Hospital not found",
       });
     }
 
-    if (hospital.PatientAssigned.length > 0) {
+    // 3. Prevent deletion if patients are assigned
+    // if (hospital.PatientAssigned.length > 0) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Cannot delete hospital. Patients are still assigned.",
+    //   });
+    // }
+
+    // 4. Prevent duplicate deletion
+    if (hospital.isDeleted) {
       return res.status(400).json({
         success: false,
-        message: `Cannot delete hospital. Patients are still assigned.`,
+        message: "Hospital is already deleted",
       });
     }
 
-    await hospital.deleteOne();
-    return res.status(200).json({
+    // 5. Soft delete instead of hard delete
+    hospital.isDeleted = true;
+    hospital.deletedBy = adminId;
+    hospital.deletedAt = new Date();
+
+    await hospital.save();
+
+    res.status(200).json({
       success: true,
-      message: "Hospital Deleted Successfully",
+      message: "Hospital deleted successfully (soft delete)",
     });
+
   } catch (error) {
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
-      message: "Server error",
+      message: "Server error while deleting hospital",
       error_message: error.message,
     });
   }
 };
+
+// get deleted hopital
+
+const get_deleted_hospitals = async (req, res) => {
+  try {
+    // Get deleted hospitals only
+    const deletedHospitals = await hospitalModel.find({ isDeleted: true })
+  .populate('deletedBy', 'name email')
+      .sort({ deletedAt: -1 }); // latest deleted first
+console.log(deletedHospitals);
+
+    if (!deletedHospitals.length) {
+      return res.status(404).json({
+        success: false,
+        message: "No deleted hospitals found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message : "All deleted hospitals",
+      count: deletedHospitals.length,
+      data: deletedHospitals,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching deleted hospitals",
+      error_message: error.message,
+    });
+  }
+};
+
 
 /* Patient Section */
 
@@ -2342,8 +2402,8 @@ const update_notes = async (req, res) => {
 const all_patients = async (req, res) => {
   try {
     const { disease_name, country } = req.query;
-    const filter = {};
-    
+    const filter = { isDeleted:false }; // Only non-deleted patients
+
     // Filter by disease_name if provided
     if (disease_name) {
       filter["patient_disease.disease_name"] = disease_name;
@@ -2358,7 +2418,10 @@ const all_patients = async (req, res) => {
     if (req.user?.roleStatuses && req.user.roleStatuses.length > 0) {
       filter.p_status = { $in: req.user.roleStatuses };
     }
-
+     console.log(filter);
+     console.log(req.user);
+     
+     
     // Fetch patients
     const get_patient = await patientModel.find(filter).lean();
 
@@ -2379,11 +2442,12 @@ const all_patients = async (req, res) => {
     // Send response
     return res.status(200).json({
       success: true,
-      message: 'All patient',
+      message: 'All patients retrieved successfully',
+      count : get_patient.length ,
       details: get_patient.map(p => ({
         patientId: p.patientId,
         patient_name: p.patient_name,
-        patientNumber : p.patientNumber,
+        patientNumber: p.patientNumber,
         email: p.email,
         age: p.age,
         gender: p.gender,
@@ -2392,10 +2456,10 @@ const all_patients = async (req, res) => {
         emergency_contact: p.emergency_contact_no,
         patient_status: p.patient_status,
         patient_type: p.patient_type,
-        p_staus: p.p_status,
+        p_status: p.p_status,
         enquiryId: p.enquiryId,
         createdBy: p.created_by?.[0]?.role || null,
-        createdAt : p.createdAt
+        createdAt: p.createdAt
       }))
     });
 
@@ -2407,6 +2471,7 @@ const all_patients = async (req, res) => {
     });
   }
 };
+
 
 
 
@@ -2594,44 +2659,91 @@ const get_patient = async (req, res) => {
 const deletePatient = async (req, res) => {
   try {
     const patientId = req.params.patientId;
-    // check for patient Id
+
+    // Validate patient ID
     if (!patientId) {
       return res.status(400).json({
         success: false,
-        message: "Patient Id Required",
+        message: "Patient ID is required",
       });
     }
 
-    // check for patient
-    const patient = await patientModel.findOne({ patientId: patientId });
-    if (!patient) {
-      return res.status(400).json({
+    // Check logged-in user
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
         success: false,
-        message: "Patient Details Not Found",
+        message: "Unauthorized: User info not found",
       });
     }
-    // check for hospital
-    //    const hospital = await hospitalModel.findOne({ _id : patient.hospital_id })
 
-    // await hospitalModel.updateOne(
-    //                 { _id: hospital._id },
-    //                 { $pull: { PatientAssigned: { patientId } } }
-    //          );
+    // Find patient
+    const patient = await patientModel.findOne({ patientId });
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: "Patient not found",
+      });
+    }
 
-    await patient.deleteOne();
+    // Optional: If you want to remove the patient from hospital assignment list
+    if (patient.hospital_id) {
+      await hospitalModel.updateOne(
+        { _id: patient.hospital_id },
+        { $pull: { PatientAssigned: { patientId } } }
+      );
+    }
+
+    // Soft delete - keep the record for history
+    patient.isDeleted = true;
+    patient.deletedAt = new Date();
+    patient.deletedBy = req.user.id; // Who deleted
+    await patient.save();
 
     return res.status(200).json({
       success: true,
-      message: "Patient Record Deleted successfully",
+      message: "Patient record marked as deleted successfully",
     });
+
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: "Server error",
+      message: "Server error while deleting patient",
       error_message: error.message,
     });
   }
 };
+
+const getAllDeletedPatients = async (req, res) => {
+  try {
+    // Optional: Check if user is authorized to view deleted patients
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: User info not found",
+      });
+    }
+
+    const deletedPatients = await patientModel
+      .find({ isDeleted: true })
+      .populate("deletedBy", "name email") // assuming deletedBy stores a user _id
+      .sort({ deletedAt: -1 }); // most recent deletions first
+
+    return res.status(200).json({
+      success: true,
+      message : "All deleted patients",
+      count: deletedPatients.length,
+      data: deletedPatients,
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error while fetching deleted patients",
+      error_message: error.message,
+    });
+  }
+};
+
 
 // Api for get notes for particular patient
 
@@ -6368,6 +6480,7 @@ module.exports = {
   update_Hospital_Details,
   changeHospitalStatus,
   delete_hospital,
+  get_deleted_hospitals,
   getPatientsByHospitalId,
 
   /* Enquiry Section */
@@ -6393,6 +6506,7 @@ module.exports = {
   all_patients,
   // all_patients_pdf,
   deletePatient,
+  getAllDeletedPatients,
   get_notes_by_patient,
   generate_sampleFile,
   import_file,

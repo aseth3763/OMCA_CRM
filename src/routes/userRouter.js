@@ -62,6 +62,7 @@ const dynamicRoleCheck = require('../middleware/role_auth');
     // Api for delete_hospital
     router.delete('/delete_hospital/:hospitalId', authenticate, roleCheck('/delete_hospital'), userController.delete_hospital)
     router.get('/getPatientsByHospitalId/:hospitalId', userController.getPatientsByHospitalId)
+    router.get('/get_deleted_hospitals',authenticate, roleCheck('/get_deleted_hospitals'), userController.get_deleted_hospitals)
 
                                                   /* Enquiry Section */
 
@@ -108,6 +109,7 @@ router.put(
     // router.get('/all_patients_pdf' , userController.all_patients_pdf)
     // Api for deletePatient
     router.delete('/deletePatient/:patientId', authenticate, roleCheck('/deletePatient'), userController.deletePatient)
+    router.get('/getAllDeletedPatients', authenticate, roleCheck('/getAllDeletedPatients'), userController.getAllDeletedPatients)
     router.get('/get_notes_by_patient/:patientId',authenticate, roleCheck('/get_notes_by_patient'), userController.get_notes_by_patient)
     // Api for generate_sampleFile
     router.get('/generate_sampleFile', userController.generate_sampleFile)
@@ -144,7 +146,7 @@ router.put(
     // router.get("/all_services_pdf", userController.all_services_pdf);
     // Api for active_inactive_Service
     router.post('/active_inactive_Service/:serviceId' ,  userController.active_inactive_Service) 
-    router.get('/get_deleted_services' , userController.get_deleted_services) 
+    router.get('/get_deleted_services' ,authenticate , roleCheck('/get_deleted_services') , userController.get_deleted_services) 
     
     // Api for update service
     router.post('/update_service/:serviceId' , authenticate , roleCheck('/update_service') , userController.update_service) 

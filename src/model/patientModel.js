@@ -184,7 +184,10 @@ const patientSchema = new mongoose.Schema(
 updatedAt: {
   type: Date,
   default: Date.now
-}
+},
+isDeleted: { type: Boolean, default: false },
+    deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user' }, // assuming "staff" collection exists
+    deletedAt: { type: Date }
 
   });
 
