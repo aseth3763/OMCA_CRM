@@ -96,10 +96,10 @@ router.put(
      // Api for update_Enquiry_status
      router.delete('/deleteEnquiry/:enquiryId' ,authenticate , roleCheck('/deleteEnquiry') , userController.deleteEnquiry)
      router.post('/update_Enquiry_status/:enquiryId' , authenticate , roleCheck('/update_Enquiry_status') , userController.update_Enquiry_status)
-     router.get('/export_enquiries' ,authenticate , roleCheck('/export_enquiries') ,   userController.export_enquiries)
-     router.get('/export_patients' ,authenticate , roleCheck('/export_patients') ,   userController.export_patients)
-     router.get('/export_staffs' ,authenticate , roleCheck('/export_staffs') ,   userController.export_staffs)
-     router.get('/export_appointments' ,authenticate , roleCheck('/export_appointments') ,   userController.export_appointments)
+     router.get('/export_enquiries' , authenticate , roleCheck('/export_enquiries') ,  userController.export_enquiries)
+     router.get('/export_patients' , authenticate , roleCheck('/export_patients') ,   userController.export_patients)
+     router.get('/export_staffs', authenticate , roleCheck('/export_staffs') ,  userController.export_staffs)
+     router.get('/export_appointments' ,   userController.export_appointments)
      router.get("/getOldEnquiryHistory",authenticate, roleCheck('/getOldEnquiryHistory'),userController.getOldEnquiryHistory);
 
                                                   /* Patient Section */

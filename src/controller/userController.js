@@ -1,6 +1,8 @@
 const userModel = require("../model/userModel");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const fs = require("fs");
+const path = require("path");
 // const puppeteer = require("puppeteer");
 const user_Email = require("../utils/userEmail");
 const hospitalModel = require("../model/hospitalModel");
@@ -2212,7 +2214,8 @@ const export_enquiries = async (req, res) => {
   try {
     // Fetch only enquiries where status is 'pending'
     const enquiries = await enquiryModel.find({ enq_status: "Pending" }).lean();
-
+    console.log(enquiries);
+    
     if (!enquiries.length) {
       return res.status(404).json({
         success: false,
@@ -2231,8 +2234,11 @@ const export_enquiries = async (req, res) => {
       { header: "Country", key: "country", width: 20 },
       { header: "Contact", key: "emergency_contact_no", width: 20 },
       { header: "Disease Name", key: "disease_name", width: 30 },
-      { header: "Status", key: "status", width: 15 },
+      { header: "Status", key: "enq_status", width: 15 },
     ];
+
+
+    
 
     // Add rows
     enquiries.forEach((enq) => {
@@ -2243,7 +2249,7 @@ const export_enquiries = async (req, res) => {
         country: enq.country,
         emergency_contact_no: enq.emergency_contact_no,
         disease_name: enq.disease_name,
-        status: enq.status || "pending", // Default to pending if not explicitly set
+        enq_status: enq.enq_status || "Pending", // Default to pending if not explicitly set
       });
     });
 
@@ -2259,7 +2265,7 @@ const export_enquiries = async (req, res) => {
 
     // Write to response
     await workbook.xlsx.write(res);
-    res.end();
+    res.end()
   } catch (error) {
     console.error("Export Error:", error);
     return res.status(500).json({
@@ -4769,14 +4775,11 @@ const update_patient_treatment_status = async (req, res) => {
 // };
 //js
 
-const fs = require("fs");
-const path = require("path");
+
 
 const exportfilteredpatient = async (req, res) => {
   try {
-    const { startDate, endDate, treatment_course_name, country, age } =
-      req.query;
-
+    const { startDate, endDate, treatment_course_name, country, age } = req.query;
     let filter = {};
 
     if (startDate || endDate) {
@@ -4784,26 +4787,17 @@ const exportfilteredpatient = async (req, res) => {
       if (startDate) {
         const start = new Date(startDate);
         if (!isNaN(start)) filter.createdAt.$gte = start;
-        else
-          return res
-            .status(400)
-            .json({ success: false, message: "Invalid startDate format" });
+        else return res.status(400).json({ success: false, message: "Invalid startDate format" });
       }
       if (endDate) {
         const end = new Date(endDate);
         if (!isNaN(end)) filter.createdAt.$lte = end;
-        else
-          return res
-            .status(400)
-            .json({ success: false, message: "Invalid endDate format" });
+        else return res.status(400).json({ success: false, message: "Invalid endDate format" });
       }
     }
 
     if (treatment_course_name) {
-      filter.treatment_course_name = {
-        $regex: treatment_course_name,
-        $options: "i",
-      };
+      filter.treatment_course_name = { $regex: treatment_course_name, $options: "i" };
     }
 
     if (country) {
@@ -4812,21 +4806,19 @@ const exportfilteredpatient = async (req, res) => {
 
     if (age) {
       const parsedAge = Number(age);
-      if (isNaN(parsedAge))
-        return res
-          .status(400)
-          .json({ success: false, message: "Invalid age format" });
+      if (isNaN(parsedAge)) {
+        return res.status(400).json({ success: false, message: "Invalid age format" });
+      }
       filter.age = parsedAge;
     }
 
     const patients = await patientModel.find(filter).lean();
 
     if (!patients.length) {
-      return res
-        .status(404)
-        .json({ success: false, message: "No matching patients found" });
+      return res.status(404).json({ success: false, message: "No matching patients found" });
     }
 
+    // Create Excel workbook
     const workbook = new ExcelJs.Workbook();
     const worksheet = workbook.addWorksheet("Filtered Patients");
 
@@ -4856,19 +4848,20 @@ const exportfilteredpatient = async (req, res) => {
       });
     });
 
+    // Save file in exports folder
     const filename = `filtered_patients_${Date.now()}.xlsx`;
     const filePath = path.join(__dirname, "..", "..", "exports", filename);
-
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
-
     await workbook.xlsx.writeFile(filePath);
 
+    // Return data + download link
     return res.status(200).json({
       success: true,
       message: "Filtered patients retrieved successfully",
       data: patients,
       download_link: `/omca_crm/exports/${filename}`,
     });
+
   } catch (error) {
     console.error("Error exporting patients:", error);
     return res.status(500).json({

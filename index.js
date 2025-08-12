@@ -18,7 +18,8 @@ app.use(express.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
 app.use(express.static('uploads'))
-app.use('/omca_crm/api/omca_crm/exports', express.static(path.join(__dirname, 'exports')));
+// Serve exports folder
+app.use('/omca_crm/exports', express.static(path.join(__dirname, 'exports')));
 
  app.use((err, req, res, next) => {
   logger.error('Unhandled error:', err); //  log all unhandled errors

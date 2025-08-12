@@ -104,35 +104,44 @@ const updateDashboardPermission = async (req, res) => {
 
 // Api for get endpoints according to role
 
-const get_all_dashboard_endPoints = async( req , res)=> {
-            try {
-                    const allend_points = await PermissionDashboardModel.find({ role : {$ne : "Admin"} }).sort({ createdAt  : -1 }).lean()
-                    if(!allend_points)
-                    {
-                        return res.status(400).json({
-                              success : false ,
-                              message : 'No end points found'
-                        })
-                    }
+const get_all_dashboard_endPoints = async (req, res) => {
+    try {
+        const allend_points = await PermissionDashboardModel
+            .find({ role: { $ne: "Admin" } })
+            .sort({ createdAt: -1 })
+            .lean();
 
-                      return res.status(200).json({
-                           success : true ,
-                           message : 'ALL end points',
-                           endPoints : allend_points.map((e)=> ({
-                                  Id : e._id,
-                                  role : e.role,
-                                  permissions : e.permissions
-                           }))
-                      })
-                       
-            } catch (error) {
-                  return res.status(500).json({
-                       success : false ,
-                       message : 'Server error',
-                       error_message : error.message
-                  })
-            }
-}
+        if (!allend_points || allend_points.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No end points found'
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'ALL end points',
+            endPoints: allend_points.map((e) => {
+                // Copy permissions without unwanted keys
+                const { "/Manage_Permissions": _, "/Dashboard": __, ...filteredPermissions } = e.permissions;
+
+                return {
+                    Id: e._id,
+                    role: e.role,
+                    permissions: filteredPermissions
+                };
+            })
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: 'Server error',
+            error_message: error.message
+        });
+    }
+};
+
 
     
 
