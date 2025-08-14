@@ -32,7 +32,6 @@ const sendWhatsAppMessage = require("../utils/infobipWhatsApp");
 const add_staff_user = async (req, res) => {
   try {
     let { name, email, phone_no, gender, role, password, roleStatuses } = req.body;
-    console.log("Raw roleStatuses:", roleStatuses);
 
     // Convert roleStatuses from string to array if needed
     if (typeof roleStatuses === "string") {
@@ -369,7 +368,6 @@ const export_staffs = async (req, res) => {
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
-    console.error("Export Users Error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to export users",
@@ -880,13 +878,11 @@ const editCountry = async (req, res) => {
         message: "Country not found",
       });
     }
-    console.log(country);
 
     // Update fields if provided
     if (countryName) {
       country.name = countryName;
 
-      console.log(country.name);
     }
     if (countryCode) {
       country.code = countryCode;
@@ -896,7 +892,6 @@ const editCountry = async (req, res) => {
     }
 
     await country.save();
-    console.log(country);
     return res.status(200).json({
       success: true,
       message: "Country details updated successfully",
@@ -1120,7 +1115,6 @@ const getAll_hospital = async (req, res) => {
       .find({isDeleted:false})
       .sort({ createdAt: -1 })
       .lean();
-    console.log(all_hospital);
 
     if (!all_hospital || all_hospital.length === 0) {
       return res.status(400).json({
@@ -1175,7 +1169,6 @@ const getPatientsByHospitalId = async (req, res) => {
 
     const uniquePatientIds = [...new Set(patientIds)];
 
-    console.log("Unique patient IDs:", uniquePatientIds);
 
     if (uniquePatientIds.length === 0) {
       return res.status(200).json({
@@ -1190,7 +1183,6 @@ const getPatientsByHospitalId = async (req, res) => {
         patientId: { $in: uniquePatientIds },
       })
       .lean();
-    console.log("Patients found:", patients);
 
     return res.status(200).json({
       success: true,
@@ -1199,7 +1191,6 @@ const getPatientsByHospitalId = async (req, res) => {
       patients,
     });
   } catch (error) {
-    console.error("Error:", error.message);
     return res.status(500).json({
       success: false,
       message: "Server error",
@@ -1335,7 +1326,6 @@ const changeHospitalStatus = async (req, res) => {
       { new: true }
     );
 
-    console.log(updatedHospital);
 
     if (!updatedHospital) {
       return res.status(404).json({
@@ -1364,7 +1354,6 @@ const delete_hospital = async (req, res) => {
   try {
     const { hospitalId } = req.params;
     const adminId = req.user?.id; // populated by auth middleware
-    console.log(req.user);
     
     // 1. Validate input
     if (!hospitalId) {
@@ -1436,7 +1425,6 @@ const get_deleted_hospitals = async (req, res) => {
     const deletedHospitals = await hospitalModel.find({ isDeleted: true })
   .populate('deletedBy', 'name email')
       .sort({ deletedAt: -1 }); // latest deleted first
-console.log(deletedHospitals);
 
     if (!deletedHospitals.length) {
       return res.status(404).json({
@@ -1497,10 +1485,6 @@ const add_new_enq = async (req, res) => {
     } = req.body;
 
     let userId = req.params.userId;
-
-    console.log(req.body);
-    console.log(userId);
-    
 
     // Validate userId
     if (!userId) {
@@ -1632,7 +1616,6 @@ const add_new_enq = async (req, res) => {
 
       try {
         const waResult = await sendWhatsAppMessage(fullNumber, waMessage);
-        console.log("WhatsApp Sent:", waResult);
       } catch (waErr) {
         console.error("WhatsApp Error:", waErr.message);
       }
@@ -2122,7 +2105,6 @@ const update_Enquiry_status = async (req, res) => {
       try {
         79;
         const result = await sendWhatsAppMessage(fullNumber, waMessage);
-        console.log(" WhatsApp Sent:", result);
       } catch (waErr) {
         console.error(" WhatsApp Error:", waErr.message);
       }
@@ -2147,9 +2129,7 @@ const getOldEnquiryHistory = async (req, res) => {
   try {
     // Get the date 6 months ago from today
     const sixMonthsAgo = new Date();
-    console.log(sixMonthsAgo.getMonth() - 6);
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-    console.log(sixMonthsAgo);
 
     // Fetch all enquiries older than 6 months where status is NOT "confirmed"
     const enquiries = await enquiryModel
@@ -2214,7 +2194,6 @@ const export_enquiries = async (req, res) => {
   try {
     // Fetch only enquiries where status is 'pending'
     const enquiries = await enquiryModel.find({ enq_status: "Pending" }).lean();
-    console.log(enquiries);
     
     if (!enquiries.length) {
       return res.status(404).json({
@@ -2267,7 +2246,6 @@ const export_enquiries = async (req, res) => {
     await workbook.xlsx.write(res);
     res.end()
   } catch (error) {
-    console.error("Export Error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to export pending enquiries",
@@ -2319,7 +2297,6 @@ const add_notes = async (req, res) => {
     await enquiryData.save();
 
     const patientData = await patientModel.findOne({ enquiryId });
-    console.log(patientData);
 
     if (patientData) {
       patientData.discussionNotes.push(newDiscussion);
@@ -2331,7 +2308,6 @@ const add_notes = async (req, res) => {
       message: "Note added succcessfully",
     });
   } catch (error) {
-    console.log(error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -2395,7 +2371,6 @@ const update_notes = async (req, res) => {
       message: "Note updated successfully",
     });
   } catch (error) {
-    console.error(error);
     return res.status(500).json({
       success: false,
       message: "Internal Server Error",
@@ -2424,8 +2399,7 @@ const all_patients = async (req, res) => {
     if (req.user?.roleStatuses && req.user.roleStatuses.length > 0) {
       filter.p_status = { $in: req.user.roleStatuses };
     }
-     console.log(filter);
-     console.log(req.user);
+
      
      
     // Fetch patients
@@ -2770,7 +2744,6 @@ const get_notes_by_patient = async (req, res) => {
         message: "No patient data found",
       });
     }
-    console.log(patientData);
 
     return res.status(200).json({
       success: true,
@@ -2836,7 +2809,6 @@ const export_patients = async (req, res) => {
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
-    console.error("Export Patients Error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to export patients",
@@ -2889,9 +2861,7 @@ const generate_sampleFile = async (req, res) => {
     // Send the Excel file as a response
     await workbook.xlsx.write(res);
     res.end();
-    console.log("Excel file sent");
   } catch (error) {
-    console.error("Error sending Excel file:", error);
     res.status(500).send("Internal Server Error");
   }
 };
@@ -2945,7 +2915,6 @@ const import_file = async (req, res) => {
       actualHeaders.push(cell.value);
     });
 
-    console.log(actualHeaders);
 
     const isValidHeaders = requiredHeaders.every((header, index) => {
       return (
@@ -3001,17 +2970,12 @@ const import_file = async (req, res) => {
     const uniqueData = [];
     for (const data of fileData) {
       const existingRecord = await enquiryModel.findOne({ email: data.email });
-      console.log(existingRecord);
       if (existingRecord) {
-        console.log(`Existing record found for email: ${data.email}`);
       } else {
-        console.log(`New record to insert: ${data.email}`);
         uniqueData.push(data);
       }
     }
 
-    console.log("File Data: ", fileData);
-    console.log("Unique Data: ", uniqueData);
 
     if (uniqueData.length > 0) {
       // Insert the unique data into the database
@@ -3028,7 +2992,6 @@ const import_file = async (req, res) => {
       });
     }
   } catch (error) {
-    console.error(error);
     res.status(500).json({
       success: false,
       error: "There was an error while importing data",
@@ -3042,7 +3005,6 @@ const update_patient = async( req , res )=> {
               const patientId = req.params.patientId
               const {  patient_name , patientNumber , age , gender , email , emergency_contact_no ,
                       country  , discussionNotes ,patientDisease,date } = req.body
-console.log(date);
 
                   // check for patient Id
                 if(!patientId)
@@ -3056,7 +3018,6 @@ console.log(date);
                    // check for patient 
                    
                    const patient = await patientModel.findOne({ patientId : patientId })
-                   console.log(patient);
                    
                    if(!patient)
                    {
@@ -3102,7 +3063,6 @@ console.log(date);
                        // ✅ Update createdAt date safely
  if (date) {
   const parsedDate = new Date(date);
-  console.log('Parsed date:', parsedDate);
 
   if (!isNaN(parsedDate.getTime())) {
     patient.set('createdAt', parsedDate);
@@ -3435,7 +3395,6 @@ const create_appointment = async (req, res) => {
 
       try {
         const whatsappResult = await sendWhatsAppMessage(fullNumber, waMessage);
-        console.log("📨 WhatsApp Message Sent:", whatsappResult);
       } catch (waErr) {
         console.error("❌ WhatsApp Error:", waErr.message);
       }
@@ -3761,7 +3720,6 @@ const export_appointments = async (req, res) => {
     await workbook.xlsx.write(res);
     res.end();
   } catch (error) {
-    console.error("Export Appointments Error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to export appointments",
@@ -4195,7 +4153,6 @@ const create_treatment = async (req, res) => {
       paymentMethod,
       services,
     } = req.body;
-    console.log(req.body);
 
     amount_paid = parseInt(amount_paid);
 
@@ -4321,7 +4278,6 @@ const create_treatment = async (req, res) => {
           waMessage
         );
         // Optional: Log or return WhatsApp status if needed
-        console.log(whatsappResult);
       } catch (waErr) {
         console.error("WhatsApp Error:", waErr.message);
       }
@@ -4341,7 +4297,6 @@ const create_treatment = async (req, res) => {
 };
 
 const update_treatment_status = async (req, res) => {
-  console.log(req.body);
   try {
     const { treatment_id } = req.params;
     const { status } = req.body;
@@ -4476,20 +4431,17 @@ const get_unadded_services_for_treatment = async (req, res) => {
         message: "Treatment not found",
       });
     }
-    // console.log(treatment);
 
     // Fetch only active services
     const allActiveServices = await serviceModel.find({ isActive: 1 , isDeleted : false});
 
     // Get serviceIds already added in treatment
     const addedServiceIds = treatment.services.map((s) => s.serviceId);
-    console.log(addedServiceIds);
 
     // Filter out services that are already added
     const unaddedServices = allActiveServices.filter(
       (service) => !addedServiceIds.includes(service.serviceId)
     );
-    console.log(unaddedServices);
 
     return res.status(200).json({
       success: true,
@@ -4765,7 +4717,6 @@ const update_patient_treatment_status = async (req, res) => {
 //         res.end();
 
 //     } catch (error) {
-//         console.error("Error exporting patients:", error);
 //         res.status(500).json({
 //             success: false,
 //             message: 'Server error',
@@ -4863,7 +4814,6 @@ const exportfilteredpatient = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Error exporting patients:", error);
     return res.status(500).json({
       success: false,
       message: "Server error",
@@ -4989,7 +4939,6 @@ const Dashboard_count = async (req, res) => {
       {},
       "course_name image"
     );
-    console.log(allCourses);
     // Create array of course name and patient count
     let courseAssignmentCounts = [];
     for (let course of allCourses) {
@@ -5378,7 +5327,6 @@ const patient_Kyc_details = async (req, res) => {
 
     // add kyc details
     const newKycDetails = {};
-    console.log(req.files);
     
     if (req.files.id_proof) {
       newKycDetails.id_proof = req.files.id_proof[0].filename;
@@ -5516,7 +5464,6 @@ const get_deleted_services = async (req, res) => {
 const delete_service = async (req, res) => {
   try {
     const { serviceId } = req.params;
-    console.log(req.user);
     
     const adminId = req.user?.id; // ensure populated by auth middleware
 
@@ -5580,8 +5527,6 @@ const delete_service = async (req, res) => {
 //     const patientId = req.params.patientId;
 //     const { services} = req.body;
 
-//     console.log('Request Body:', req.body);
-
 //     // Check for patientId
 //     if (!patientId) {
 //       return res.status(400).json({
@@ -5601,7 +5546,6 @@ const delete_service = async (req, res) => {
 //     }
 
 //     // Log current services before modification
-//     console.log("Existing Services:", patient.services);
 
 //     let fetchedServices = [];
 
@@ -5636,27 +5580,23 @@ const delete_service = async (req, res) => {
 //       }
 //     }
 
-//     console.log(fetchedServices)
-//     console.log(patient.services);
+
 
 //     // Add the new services to the patient's services without replacing the old ones
 //     patient.services = [...patient.services, ...fetchedServices]; // Ensure new services are appended
 //     patient.serviceCount = patient.services.length; // Update serviceCount after adding the new services
 
 //     // Log the updated services
-//     console.log("Updated Services:", patient.services);
 
 //     // Save the patient with the updated services
 //     await patient.save();
 
-//     console.log(patient.services);
 
 //     return res.status(200).json({
 //       success: true,
 //       message: 'Extra services added successfully',
 //     });
 //   } catch (error) {
-//     console.error('Error:', error);
 //     return res.status(500).json({
 //       success: false,
 //       message: 'Server error',
@@ -5745,7 +5685,6 @@ const delete_service = async (req, res) => {
 //       message: 'Extra services added successfully to patient and treatment',
 //     });
 //   } catch (error) {
-//     console.error('Error:', error);
 //     return res.status(500).json({
 //       success: false,
 //       message: 'Server error',
@@ -5758,7 +5697,6 @@ const patient_extra_service = async (req, res) => {
   try {
     const treatment_id = req.params.treatment_id;
     const { services } = req.body;
-    console.log("Services:", services);
 
     if (!treatment_id) {
       return res.status(400).json({
@@ -5838,7 +5776,6 @@ const patient_extra_service = async (req, res) => {
       message: "Extra service added successfully.",
     });
   } catch (error) {
-    console.error("Error:", error);
     return res.status(500).json({
       success: false,
       message: "Server error",
@@ -5935,7 +5872,6 @@ const add_new_treatment_payment = async (req, res) => {
 
       try {
         const whatsappResult = await sendWhatsAppMessage(fullNumber, waMessage);
-        console.log("WhatsApp Message Sent:", whatsappResult);
       } catch (waErr) {
         console.error("WhatsApp Error:", waErr.message);
       }
@@ -6082,7 +6018,6 @@ const totalEarnings = async (req, res) => {
 
 //     res.end(buffer);
 //   } catch (error) {
-//     console.error("Error generating PDF:", error);
 //     res.status(500).json({
 //       success: false,
 //       message: "Server error",
@@ -6221,7 +6156,6 @@ const getFilteredReports = async (req, res) => {
       data: patients,
     });
   } catch (error) {
-    console.error("Error fetching reports:", error);
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
@@ -6426,13 +6360,12 @@ const getAllPaymentsByPatientId = async (req, res) => {
       success: true,
       message: "Payment details for patient",
       data: {
-        patient, // ✅ full patient object
-        payments, // ✅ array of payment objects
-        totalPaid, // ✅ total of all paid_amounts
+        patient, //  full patient object
+        payments, //  array of payment objects
+        totalPaid, // total of all paid_amounts
       },
     });
   } catch (error) {
-    console.error("Error fetching payments:", error);
     return res.status(500).json({
       success: false,
       message: "Server error while fetching payments",
