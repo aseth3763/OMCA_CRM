@@ -1501,7 +1501,9 @@ const add_new_enq = async (req, res) => {
 
     if (req.files) {
       // Handle relation_id image
-      const relationFile = req.files["relation_id"]?.[0];
+      const relationFile = req.files["patient_relation_id"]?.[0];
+      console.log(patient_relation_id);
+      
       if (relationFile) {
         const ext = path.extname(relationFile.filename).toLowerCase();
         if (imageFields.includes(ext)) {
@@ -2384,7 +2386,7 @@ const all_patients = async (req, res) => {
   try {
     const { disease_name, country } = req.query;
     const filter = { isDeleted:false }; // Only non-deleted patients
-
+    
     // Filter by disease_name if provided
     if (disease_name) {
       filter["patient_disease.disease_name"] = disease_name;
@@ -2399,11 +2401,11 @@ const all_patients = async (req, res) => {
     if (req.user?.roleStatuses && req.user.roleStatuses.length > 0) {
       filter.p_status = { $in: req.user.roleStatuses };
     }
-
-     
-     
+    
     // Fetch patients
-    const get_patient = await patientModel.find(filter).lean();
+    const get_patient = await patientModel.find(filter)
+    .sort({ createdAt: -1 })
+    .lean();
 
     if (!get_patient || get_patient.length === 0) {
       return res.status(400).json({
@@ -2412,12 +2414,12 @@ const all_patients = async (req, res) => {
       });
     }
 
-    // Sort by numeric part of patientId (descending)
-    get_patient.sort((a, b) => {
-      const numA = parseInt(a.patientId.replace(/[^\d]/g, ""));
-      const numB = parseInt(b.patientId.replace(/[^\d]/g, ""));
-      return numB - numA;
-    });
+    // // Sort by numeric part of patientId (descending)
+    // get_patient.sort((a, b) => {
+    //   const numA = parseInt(a.patientId.replace(/[^\d]/g, ""));
+    //   const numB = parseInt(b.patientId.replace(/[^\d]/g, ""));
+    //   return numB - numA;
+    // });
 
     // Send response
     return res.status(200).json({

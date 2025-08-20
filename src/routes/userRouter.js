@@ -72,7 +72,7 @@ router.post(
   authenticate,
   roleCheck('/add_new_enq'),
   upload.fields([
-    { name: 'relation_id', maxCount: 1 },
+    { name: 'patient_relation_id', maxCount: 1 },
     { name: 'patient_id_proof', maxCount: 1 }
   ]),
   userController.add_new_enq
