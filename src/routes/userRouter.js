@@ -95,6 +95,7 @@ router.put(
 );
      // Api for update_Enquiry_status
      router.delete('/deleteEnquiry/:enquiryId' ,authenticate , roleCheck('/deleteEnquiry') , userController.deleteEnquiry)
+     router.get('/get_deleted_enquiries' ,authenticate , roleCheck('/get_deleted_enquiries') , userController.get_deleted_enquiries)
      router.post('/update_Enquiry_status/:enquiryId' , authenticate , roleCheck('/update_Enquiry_status') , userController.update_Enquiry_status)
      router.get('/export_enquiries' , authenticate , roleCheck('/export_enquiries') ,  userController.export_enquiries)
      router.get('/export_patients' , authenticate , roleCheck('/export_patients') ,   userController.export_patients)
@@ -127,10 +128,10 @@ router.put(
     // Api for add patient_Kyc_details
     router.post('/patient_Kyc_details/:patientId' , upload.fields([
         
-        { name: 'id_proof', maxCount: 1 },
+        // { name: 'id_proof', maxCount: 1 },
         { name: 'photo', maxCount: 1 },
         { name: 'passport', maxCount: 1 },
-        { name: 'Attende_id_proof', maxCount: 1 },
+        // { name: 'Attende_id_proof', maxCount: 1 },
         { name: 'Attende_passport', maxCount: 1 },
         { name: 'Attende_photo', maxCount: 1 }
       ]            

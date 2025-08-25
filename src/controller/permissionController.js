@@ -7,7 +7,7 @@ const add_endPoints = async (req, res) => {
         const { endpoints } = req.body; 
 
         // Define the roles and their permissions
-        const roles = ['Admin', 'Receptionist' , 'Manager' ,'Finance'];
+        const roles = ['Admin', 'Receptionist' , 'Manager' ,'Finance',"Coordinator"];
 
         for (const role of roles) {
             const permissions = {};

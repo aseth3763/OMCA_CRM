@@ -3,47 +3,55 @@ const PermissionDashboardModel = require('../model/perimissionDashboardModel')
 
 
 const add_Dashboard_endPoints = async (req, res) => {
-    try {
-        const { endpoints } = req.body; 
+  try {
+    const { endpoints } = req.body; 
 
-        // Define the roles and their permissions
-        const roles = ['Admin', 'Receptionist' , 'Manager', 'Finance'];
+    // Define the roles and their permissions
+    const roles = ['Admin', 'Receptionist' , 'Manager', 'Finance', 'Coordinator'];
 
-        for (const role of roles) {
-            const permissions = {};
+    for (const role of roles) {
+      const existingPermission = await PermissionDashboardModel.findOne({ role });
 
-            // Add or update permission for each endpoint (1)
-            endpoints.forEach(endpoint => {
-                permissions[endpoint] = permissions[endpoint] || 1;
-            });
-
-            // Insert or update the permission
-            const existingPermission = await PermissionDashboardModel.findOne({ role });
-
-            if (!existingPermission) {
-                // If no existing permission found, create new
-                await PermissionDashboardModel.create({ role, permissions });
-            } else {
-                // If permission exists, update it
-                await PermissionDashboardModel.updateOne(
-                    { role },
-                    { $set: { permissions } }
-                );
-            }
-        }
-
-        res.status(200).json({
-            success: true,
-            message: 'endPoints added successfully',
+      if (!existingPermission) {
+        // Agar pehli baar role add ho raha hai
+        const permissions = {};
+        endpoints.forEach(endpoint => {
+          permissions[endpoint] = 1;
         });
-    } catch (error) {
-        res.status(500).json({
-            success: false,
-            message: 'Failed to add/update permissions',
-            error: error.message,
+        await PermissionDashboardModel.create({ role, permissions });
+      } else {
+        // Purane permissions ko plain object me convert karo
+        const updatedPermissions = existingPermission.permissions.toObject
+          ? existingPermission.permissions.toObject()
+          : { ...existingPermission.permissions };
+
+        // Sirf naye endpoints add karo
+        endpoints.forEach(endpoint => {
+          if (!(endpoint in updatedPermissions)) {
+            updatedPermissions[endpoint] = 1;
+          }
         });
+
+        await PermissionDashboardModel.updateOne(
+          { role },
+          { $set: { permissions: updatedPermissions } }
+        );
+      }
     }
+
+    res.status(200).json({
+      success: true,
+      message: 'endPoints added successfully',
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Failed to add/update permissions',
+      error: error.message,
+    });
+  }
 };
+
 
 
 

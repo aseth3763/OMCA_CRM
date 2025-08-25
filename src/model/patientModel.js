@@ -7,6 +7,9 @@ const patientSchema = new mongoose.Schema(
     patientNumber: {
       type: String,
     },
+    Referral_Name: {
+      type :String
+    },
     enquiryId: {
       type: String,
     },
@@ -47,9 +50,12 @@ const patientSchema = new mongoose.Schema(
     patient_relation: {
       type: String,
     },
-    patient_relation_id: {
-      type: String,
-    },
+    patient_relation_no : {
+               type : Number
+          },
+    // patient_relation_id: {
+    //   type: String,
+    // },
     patient_type: {
       type: String,
       enum: ["New", "Repeat", "Completed", "Dead"],
@@ -102,7 +108,7 @@ const patientSchema = new mongoose.Schema(
     p_status : {
                type  : String,
                enum : ["Foundation", "Private", "Travelled", "Confirmed", "Pending" , "On Hold", "Cancelled", "Local Case", "Follow Up",
-                    "Passed Away"],
+                    "Passed Away","Homecare" ,"Insurance"],
                default : "Foundation"
           },
 

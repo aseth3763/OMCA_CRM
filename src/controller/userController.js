@@ -1423,7 +1423,7 @@ const get_deleted_hospitals = async (req, res) => {
   try {
     // Get deleted hospitals only
     const deletedHospitals = await hospitalModel.find({ isDeleted: true })
-  .populate('deletedBy', 'name email')
+  .populate('deletedBy', 'name email role')
       .sort({ deletedAt: -1 }); // latest deleted first
 
     if (!deletedHospitals.length) {
@@ -1481,6 +1481,7 @@ const add_new_enq = async (req, res) => {
       disease_name,
       patient_relation_name,
       patient_relation,
+      patient_relation_no,
       Referral_Name
     } = req.body;
 
@@ -1599,6 +1600,7 @@ const add_new_enq = async (req, res) => {
       address,
       patient_relation_name: patient_relation_name || "",
       patient_relation: patient_relation || "",
+      patient_relation_no,
       patient_emergency_contact_no,
       patient_relation_id,
       patient_id_proof,
@@ -1649,10 +1651,11 @@ const all_Enq = async (req, res) => {
 
     const get_enq = await enquiryModel.aggregate([
       {
-        $match: {
-          enq_status: { $nin: ["Confirmed"] },
-        },
-      },
+  $match: {
+    enq_status: { $nin: ["Confirmed"] },
+    isDeleted: false
+  }
+},
       {
         $addFields: {
           statusPriority: {
@@ -1776,6 +1779,7 @@ const get_Enq = async (req, res) => {
         patient_relation_name: enq.patient_relation_name,
         patient_relation: enq.patient_relation,
         patient_relation_id: enq.patient_relation_id,
+        patient_relation_no: enq.patient_relation_no,
         patient_id_proof: enq.patient_id_proof,
         enq_status: enq.enq_status,
         created_by: enq.created_by[0].role,
@@ -1895,6 +1899,7 @@ const update_enq = async (req, res) => {
       patient_emergency_contact_no,
       patient_relation_name,
       patient_relation,
+      patient_relation_no,
       discussionNotes,
       Referral_Name
     } = req.body;
@@ -1930,6 +1935,7 @@ const update_enq = async (req, res) => {
       enq.patient_relation_name = patient_relation_name;
     if (patient_relation) enq.patient_relation = patient_relation;
     if (Referral_Name) enq.Referral_Name = Referral_Name;
+    if (patient_relation_no) enq.patient_relation_no = patient_relation_no;
 
     // Handle uploaded files
     const imageFields = [".jpeg", ".jpg", ".png"];
@@ -2052,11 +2058,11 @@ const update_Enquiry_status = async (req, res) => {
         exist_patient.gender = enquiry.gender;
         exist_patient.emergency_contact_no = enquiry.emergency_contact_no;
         exist_patient.address = enquiry.address;
-        exist_patient.patient_emergency_contact_no =
-          enquiry.patient_emergency_contact_no;
+        exist_patient.patient_emergency_contact_no = enquiry.patient_emergency_contact_no;
         exist_patient.patient_relation = enquiry.patient_relation;
         exist_patient.patient_relation_name = enquiry.patient_relation_name;
-        exist_patient.patient_relation_id = enquiry.patient_relation_id;
+        exist_patient.patient_relation_no = enquiry.patient_relation_no;
+        // exist_patient.patient_relation_id = enquiry.patient_relation_id;
         exist_patient.patient_disease = {
           disease_name: enquiry.disease_name,
         };
@@ -2085,10 +2091,16 @@ const update_Enquiry_status = async (req, res) => {
           created_by: enquiry.created_by,
           patient_relation: enquiry.patient_relation,
           patient_relation_name: enquiry.patient_relation_name,
-          patient_relation_id: enquiry.patient_relation_id,
+          patient_relation_no: enquiry.patient_relation_no,
+          // patient_relation_id: enquiry.patient_relation_id,
           discussionNotes: enquiry.discussionNotes,
+          Referral_Name : enquiry.Referral_Name,
           medical_History: [],
-          Kyc_details: [],
+          Kyc_details: [{
+            Attende_id_proof : enquiry.patient_relation_id,
+            id_proof : enquiry.patient_id_proof
+
+          }],
           services: [],
         });
 
@@ -2160,35 +2172,92 @@ const getOldEnquiryHistory = async (req, res) => {
 const deleteEnquiry = async (req, res) => {
   try {
     const { enquiryId } = req.params;
+    const adminId = req.user?.id; // middleware se aayega
+
+    // 1. Validate input
     if (!enquiryId) {
       return res.status(400).json({
         success: false,
-        message: "Enquiry id is required",
+        message: "Enquiry ID is required",
       });
     }
 
-    const enquiryData = await enquiryModel.deleteOne({ enquiryId });
+    if (!adminId) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: Admin ID not found",
+      });
+    }
 
-    if (!enquiryData) {
+    // 2. Check enquiry existence
+    const existingEnquiry = await enquiryModel.findOne({ enquiryId });
+
+    if (!existingEnquiry) {
+      return res.status(404).json({
+        success: false,
+        message: "Enquiry not found",
+      });
+    }
+
+    if (existingEnquiry.isDeleted) {
       return res.status(400).json({
         success: false,
-        message: "No enquiry data found",
+        message: "Enquiry is already deleted",
+      });
+    }
+
+    // 3. Soft delete
+    existingEnquiry.isDeleted = true;
+    existingEnquiry.deletedBy = adminId;
+    existingEnquiry.deletedAt = new Date();
+
+    await existingEnquiry.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Enquiry deleted successfully",
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Server error while deleting enquiry",
+      error_message: error.message,
+    });
+  }
+};
+
+const get_deleted_enquiries = async (req, res) => {
+  try {
+    const deletedEnquiries = await enquiryModel
+      .find({ isDeleted: true })
+      .sort({ deletedAt: -1 })
+      .populate("deletedBy", "name role email") // deletedBy ka naam/role/email laane ke liye
+      .lean();
+
+    if (deletedEnquiries.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "No deleted enquiries found",
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: `Enquiry data deleted successfully`,
-      data: enquiryData,
+      message: "Deleted enquiries fetched successfully",
+      enquiries: deletedEnquiries
     });
+
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: "Internal Server Error",
-      error: error.message,
+      message: "Server error while fetching deleted enquiries",
+      error_message: error.message,
     });
   }
 };
+
+
 
 // Export Enquiries to CSV
 
@@ -2404,7 +2473,7 @@ const all_patients = async (req, res) => {
     
     // Fetch patients
     const get_patient = await patientModel.find(filter)
-    .sort({ createdAt: -1 })
+    .sort({ patientNumber: -1 })
     .lean();
 
     if (!get_patient || get_patient.length === 0) {
@@ -3006,7 +3075,7 @@ const update_patient = async( req , res )=> {
         try {
               const patientId = req.params.patientId
               const {  patient_name , patientNumber , age , gender , email , emergency_contact_no ,
-                      country  , discussionNotes ,patientDisease,date } = req.body
+                      country  , discussionNotes ,patientDisease,date,patient_relation_no ,patient_relation_name,patient_relation } = req.body
 
                   // check for patient Id
                 if(!patientId)
@@ -3036,6 +3105,19 @@ const update_patient = async( req , res )=> {
                        if(patientNumber)
                        {
                           patient.patientNumber = patientNumber
+                       }
+                       if(patient_relation)
+                       {
+                          patient.patient_relation = patient_relation
+                       }
+                       if(patient_relation_name)
+                       {
+                          patient.patient_relation_name = patient_relation_name
+                       }
+                       
+                       if(patient_relation_no)
+                       {
+                          patient.patient_relation_no = patient_relation_no
                        }
                        
                        if(age)
@@ -3420,7 +3502,7 @@ const all_appointment = async (req, res) => {
   try {
     // Fetch all appointments
     const getall_appointment = await appointmentModel
-      .find({})
+      .find({status :  { $ne : "Complete"}})
       .sort({ createdAt: -1 })
       .lean();
 
@@ -5307,6 +5389,7 @@ const add_free_service = async (req, res) => {
 const patient_Kyc_details = async (req, res) => {
   try {
     const patientId = req.params.patientId;
+
     // check for patientId
     if (!patientId) {
       return res.status(400).json({
@@ -5316,31 +5399,23 @@ const patient_Kyc_details = async (req, res) => {
     }
 
     // check for patient
-    const patient = await patientModel.findOne({
-      patientId: patientId,
-    });
+    const patient = await patientModel.findOne({ patientId });
 
     if (!patient) {
       return res.status(400).json({
         success: false,
-        message: "patient Not Found",
+        message: "Patient Not Found",
       });
     }
 
-    // add kyc details
+    // prepare new kyc details
     const newKycDetails = {};
-    
-    if (req.files.id_proof) {
-      newKycDetails.id_proof = req.files.id_proof[0].filename;
-    }
+
     if (req.files.passport) {
       newKycDetails.passport = req.files.passport[0].filename;
     }
     if (req.files.photo) {
       newKycDetails.photo = req.files.photo[0].filename;
-    }
-    if (req.files.Attende_id_proof) {
-      newKycDetails.Attende_id_proof = req.files.Attende_id_proof[0].filename;
     }
     if (req.files.Attende_passport) {
       newKycDetails.Attende_passport = req.files.Attende_passport[0].filename;
@@ -5349,12 +5424,23 @@ const patient_Kyc_details = async (req, res) => {
       newKycDetails.Attende_photo = req.files.Attende_photo[0].filename;
     }
 
-    patient.Kyc_details.push(newKycDetails);
+    // agar pehle se KYC details ka object hai to update karo
+    if (patient.Kyc_details.length > 0) {
+      patient.Kyc_details[0] = {
+        ...patient.Kyc_details[0]._doc, // purane fields preserve karna
+        ...newKycDetails,               // naye fields overwrite/update karna
+      };
+    } else {
+      // agar empty hai to ek naya object daal do
+      patient.Kyc_details.push(newKycDetails);
+    }
+
     await patient.save();
 
     return res.status(200).json({
       success: true,
-      message: "patient kyc details added",
+      message: "Patient KYC details updated",
+      data: patient.Kyc_details[0], // return updated object
     });
   } catch (error) {
     return res.status(500).json({
@@ -5437,6 +5523,7 @@ const get_deleted_services = async (req, res) => {
   try {
     const deletedServices = await serviceModel
       .find({ isDeleted: true })
+      .populate('deletedBy', 'name email role')
       .sort({ deletedAt: -1 }) // optional: show recent deletions first
       .lean();
 
@@ -6422,6 +6509,7 @@ module.exports = {
   getOldEnquiryHistory,
   export_enquiries,
   deleteEnquiry,
+  get_deleted_enquiries,
 
   /* treatment Course */
   add_treatment_course,

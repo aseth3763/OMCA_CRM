@@ -41,6 +41,9 @@ const enquirySchema = new mongoose.Schema({
           patient_relation : {
                type : String
           },
+          patient_relation_no : {
+               type : Number
+          },
           patient_emergency_contact_no : {
                type : Number
           },
@@ -60,7 +63,12 @@ const enquirySchema = new mongoose.Schema({
                userId : {
                    type : mongoose.Schema.Types.ObjectId
                }
-}], phoneCode : {
+}], 
+          // Soft delete fields
+              isDeleted: { type: Boolean, default: false },
+              deletedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'user' }, // assuming "staff" collection exists
+              deletedAt: { type: Date },
+          phoneCode : {
                type : String
           },
            Referral_Name: {
